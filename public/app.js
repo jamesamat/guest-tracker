@@ -42,7 +42,7 @@ function App() {
 
   // Load today's log from server on mount
   useEffect(() => {
-    apiFetch("GET", "/api/log")
+    apiFetch("GET", `/api/log?date=${localDateStr()}`)
       .then(data => { setLog(data); setLoading(false); })
       .catch(() => { setApiError("Cannot reach server — is it running?"); setLoading(false); });
   }, []);
