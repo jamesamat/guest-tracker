@@ -1,0 +1,12 @@
+# Force LF for files that run on Linux
+*.sh        text eol=lf
+Dockerfile  text eol=lf
+nginx.conf  text eol=lf
+start.sh    text eol=lf
+
+# Windows-safe for everything else
+*.js        text eol=crlf
+*.json      text eol=crlf
+*.html      text eol=crlf
+*.css       text eol=crlf
+*.md        text eol=crlf

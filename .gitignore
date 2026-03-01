@@ -1,0 +1,4 @@
+node_modules/
+guests.db
+*.db-journal
+.env

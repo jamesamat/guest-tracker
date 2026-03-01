@@ -1,0 +1,13 @@
+{
+  "name": "guest-tracker",
+  "version": "1.0.0",
+  "description": "Chuck E. Cheese Guest Check-In Tracker",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "better-sqlite3": "^9.6.0",
+    "express": "^4.21.2"
+  }
+}
