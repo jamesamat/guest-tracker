@@ -50,7 +50,14 @@ function App() {
 
   const total = Object.values(counts).reduce((a, b) => a + b, 0);
   const inc   = key => setCounts(c => ({ ...c, [key]: c[key] + 1 }));
-  const dec   = key => setCounts(c => ({ ...c, [key]: Math.max(0, c[key] - 1) }));
+  const dec   = key => {
+    setCounts(c => {
+      const next     = { ...c, [key]: Math.max(0, c[key] - 1) };
+      const newTotal = Object.values(next).reduce((a, b) => a + b, 0);
+      setFirstTime(ft => Math.min(ft, newTotal));
+      return next;
+    });
+  };
 
   async function logVisit() {
     if (total === 0) return;
@@ -167,7 +174,7 @@ function App() {
             </div>
             <button
               className="btn-round btn-ft-plus"
-              onClick={() => setFirstTime(n => n + 1)}
+              onClick={() => setFirstTime(n => Math.min(n + 1, total))}
             >+</button>
           </div>
         </div>
