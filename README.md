@@ -137,6 +137,54 @@ Then: PowerBI → **Get Data → Text/CSV**
 
 ---
 
+## Automated Daily Backups
+
+`backup.ps1` copies `guests.db` out of the container into `C:\GuestTracker\backups\` with a date-stamped filename and automatically prunes backups older than 30 days.
+
+### Set up the scheduled task (run once on 192.168.20.66)
+
+Open PowerShell **as Administrator** and run:
+
+```powershell
+$action   = New-ScheduledTaskAction `
+              -Execute "powershell.exe" `
+              -Argument "-NonInteractive -ExecutionPolicy Bypass -File C:\GuestTracker\backup.ps1"
+$trigger  = New-ScheduledTaskTrigger -Daily -At "02:00"
+$settings = New-ScheduledTaskSettingsSet -StartWhenAvailable
+Register-ScheduledTask `
+  -TaskName "GuestTrackerBackup" `
+  -Action   $action `
+  -Trigger  $trigger `
+  -Settings $settings `
+  -RunLevel Highest `
+  -User     "SYSTEM"
+```
+
+`-StartWhenAvailable` means if the machine was off at 2 AM it will run the backup as soon as it boots.
+
+### Run a backup manually
+```powershell
+powershell C:\GuestTracker\backup.ps1
+```
+
+### Restore a backup
+```powershell
+# Stop the app, swap the DB, restart
+docker stop guest-tracker
+docker cp C:\GuestTracker\backups\guests_2026-02-28_0200.db guest-tracker:/app/guests.db
+docker start guest-tracker
+```
+
+### Backup files
+```
+C:\GuestTracker\backups\
+  guests_2026-02-28_0200.db
+  guests_2026-02-27_0200.db
+  ...  (30 days kept, older files auto-deleted)
+```
+
+---
+
 ## Managing the Database
 
 The SQLite database (`guests.db`) lives in two places:
