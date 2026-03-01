@@ -101,6 +101,20 @@ app.delete('/api/log', (req, res) => {
   res.json({ deleted: info.changes });
 });
 
+// GET /api/dates  — list of all dates with entry count and guest totals
+app.get('/api/dates', (_req, res) => {
+  const rows = db.prepare(`
+    SELECT visit_date,
+           COUNT(*)        AS entries,
+           SUM(total)      AS guests,
+           SUM(first_time) AS first_timers
+    FROM visits
+    GROUP BY visit_date
+    ORDER BY visit_date DESC
+  `).all();
+  res.json(rows);
+});
+
 // ─── PowerBI Export Routes ────────────────────────────────────────────────────
 
 // GET /api/export/json  — full history as JSON (PowerBI Web connector)

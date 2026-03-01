@@ -75,17 +75,6 @@ function App() {
     }
   }
 
-  async function resetDay() {
-    if (!window.confirm("Clear all of today's data?")) return;
-    try {
-      await apiFetch("DELETE", "/api/log");
-      setLog([]);
-      setCounts(defaultCounts());
-      setFirstTime(0);
-    } catch {
-      alert("Error clearing data — check server connection");
-    }
-  }
 
   // Build hour map for summary table
   const hourMap = {};
@@ -179,7 +168,7 @@ function App() {
           </div>
         </div>
 
-        {/* Total + Reset */}
+        {/* Total */}
         <div className="total-row">
           <div className="total-label">
             Group total:{" "}
@@ -190,7 +179,6 @@ function App() {
               {total}
             </span>
           </div>
-          <button className="reset-btn" onClick={resetDay}>Reset Day</button>
         </div>
 
         {/* Log button */}
