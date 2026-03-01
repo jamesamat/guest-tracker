@@ -12,10 +12,7 @@ const defaultCounts = () =>
   AGE_GROUPS.reduce((acc, g) => ({ ...acc, [g.key]: 0 }), {});
 
 function getHourLabel(h) {
-  if (h === 0)  return "12 AM";
-  if (h < 12)   return `${h} AM`;
-  if (h === 12) return "12 PM";
-  return `${h - 12} PM`;
+  return `${String(h).padStart(2, "0")}:00`;
 }
 
 async function apiFetch(method, path, body) {
@@ -108,7 +105,7 @@ function App() {
         </div>
         <div>
           <div className="clock">
-            {now.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+            {now.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: false })}
           </div>
         </div>
       </div>
