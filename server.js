@@ -2,8 +2,9 @@ const express  = require('express');
 const Database = require('better-sqlite3');
 const path     = require('path');
 
-const app = express();
-const db  = new Database(path.join(__dirname, 'guests.db'));
+const app      = express();
+const adminApp = express();
+const db       = new Database(path.join(__dirname, 'guests.db'));
 
 // ─── Schema ───────────────────────────────────────────────────────────────────
 db.exec(`
@@ -29,7 +30,14 @@ try {
 
 // ─── Middleware ────────────────────────────────────────────────────────────────
 app.use(express.json());
+adminApp.use(express.json());
+
+// Block admin.html on the staff-facing app
+app.get('/admin.html', (_req, res) => res.status(404).end());
+
+// Serve public/ on both apps (admin.html is accessible on adminApp only)
 app.use(express.static(path.join(__dirname, 'public')));
+adminApp.use(express.static(path.join(__dirname, 'public')));
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 function todayStr() {
@@ -56,7 +64,7 @@ function rowToEntry(row) {
   };
 }
 
-// ─── API Routes ───────────────────────────────────────────────────────────────
+// ─── Staff API Routes (port 3000 / 41080) ─────────────────────────────────────
 
 // GET /api/log?date=YYYY-MM-DD  (default: today)
 app.get('/api/log', (req, res) => {
@@ -94,15 +102,33 @@ app.post('/api/log', (req, res) => {
   res.json(rowToEntry(row));
 });
 
-// DELETE /api/log?date=YYYY-MM-DD  (default: today)
-app.delete('/api/log', (req, res) => {
-  const date = req.query.date || todayStr();
-  const info = db.prepare('DELETE FROM visits WHERE visit_date = ?').run(date);
-  res.json({ deleted: info.changes });
+// ─── PowerBI Export Routes (staff port) ───────────────────────────────────────
+
+// GET /api/export/json  — full history as JSON (PowerBI Web connector)
+app.get('/api/export/json', (_req, res) => {
+  const rows = db
+    .prepare('SELECT * FROM visits ORDER BY visit_date, hour, id')
+    .all();
+  res.json(rows);
 });
 
-// GET /api/dates  — list of all dates with entry count and guest totals
-app.get('/api/dates', (_req, res) => {
+// GET /api/export/csv  — full history as CSV (downloadable or PowerBI Web)
+app.get('/api/export/csv', (_req, res) => {
+  const rows    = db.prepare('SELECT * FROM visits ORDER BY visit_date, hour, id').all();
+  const headers = ['id', 'visit_date', 'hour', 'toddler', 'preschool', 'school_age', 'teen', 'adult', 'total', 'first_time', 'logged_at'];
+  const lines   = [
+    headers.join(','),
+    ...rows.map(r => headers.map(h => JSON.stringify(r[h] ?? '')).join(',')),
+  ];
+  res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+  res.setHeader('Content-Disposition', 'attachment; filename="guest_data.csv"');
+  res.send(lines.join('\r\n'));
+});
+
+// ─── Admin API Routes (port 3001 / 41081 only) ────────────────────────────────
+
+// GET /api/dates  — all dates with totals
+adminApp.get('/api/dates', (_req, res) => {
   const rows = db.prepare(`
     SELECT visit_date,
            COUNT(*)        AS entries,
@@ -115,34 +141,25 @@ app.get('/api/dates', (_req, res) => {
   res.json(rows);
 });
 
-// ─── PowerBI Export Routes ────────────────────────────────────────────────────
-
-// GET /api/export/json  — full history as JSON (PowerBI Web connector)
-app.get('/api/export/json', (req, res) => {
-  const rows = db
-    .prepare('SELECT * FROM visits ORDER BY visit_date, hour, id')
-    .all();
-  res.json(rows);
-});
-
-// GET /api/export/csv  — full history as CSV (downloadable or PowerBI Web)
-app.get('/api/export/csv', (req, res) => {
-  const rows    = db.prepare('SELECT * FROM visits ORDER BY visit_date, hour, id').all();
-  const headers = ['id', 'visit_date', 'hour', 'toddler', 'preschool', 'school_age', 'teen', 'adult', 'total', 'first_time', 'logged_at'];
-  const lines   = [
-    headers.join(','),
-    ...rows.map(r => headers.map(h => JSON.stringify(r[h] ?? '')).join(',')),
-  ];
-  res.setHeader('Content-Type', 'text/csv; charset=utf-8');
-  res.setHeader('Content-Disposition', 'attachment; filename="guest_data.csv"');
-  res.send(lines.join('\r\n'));
+// DELETE /api/log?date=YYYY-MM-DD  — admin only
+adminApp.delete('/api/log', (req, res) => {
+  const date = req.query.date;
+  if (!date) return res.status(400).json({ error: 'date query parameter required' });
+  const info = db.prepare('DELETE FROM visits WHERE visit_date = ?').run(date);
+  res.json({ deleted: info.changes });
 });
 
 // ─── Start ────────────────────────────────────────────────────────────────────
-const PORT = process.env.PORT || 3000;
+const PORT       = process.env.PORT       || 3000;
+const ADMIN_PORT = process.env.ADMIN_PORT || 3001;
+
 app.listen(PORT, () => {
-  console.log(`Guest Tracker  →  http://localhost:${PORT}`);
+  console.log(`Guest Tracker  →  http://localhost:${PORT}  (staff, nginx → 41080)`);
   console.log(`SQLite DB      →  ${path.join(__dirname, 'guests.db')}`);
   console.log(`PowerBI JSON   →  http://localhost:${PORT}/api/export/json`);
   console.log(`PowerBI CSV    →  http://localhost:${PORT}/api/export/csv`);
+});
+
+adminApp.listen(ADMIN_PORT, () => {
+  console.log(`Admin Panel    →  http://localhost:${ADMIN_PORT}  (admin, direct → 41081)`);
 });
