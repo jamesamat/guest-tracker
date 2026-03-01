@@ -141,11 +141,27 @@ adminApp.get('/api/dates', (_req, res) => {
   res.json(rows);
 });
 
-// DELETE /api/log?date=YYYY-MM-DD  — admin only
+// DELETE /api/log?date=YYYY-MM-DD  — delete all entries for a date
 adminApp.delete('/api/log', (req, res) => {
   const date = req.query.date;
   if (!date) return res.status(400).json({ error: 'date query parameter required' });
   const info = db.prepare('DELETE FROM visits WHERE visit_date = ?').run(date);
+  res.json({ deleted: info.changes });
+});
+
+// GET /api/entries?date=YYYY-MM-DD  — individual entries for a date
+adminApp.get('/api/entries', (req, res) => {
+  const date = req.query.date;
+  if (!date) return res.status(400).json({ error: 'date required' });
+  const rows = db.prepare('SELECT * FROM visits WHERE visit_date = ? ORDER BY hour, id').all(date);
+  res.json(rows);
+});
+
+// DELETE /api/entry/:id  — delete a single entry by row ID
+adminApp.delete('/api/entry/:id', (req, res) => {
+  const id   = parseInt(req.params.id, 10);
+  if (!id)   return res.status(400).json({ error: 'invalid id' });
+  const info = db.prepare('DELETE FROM visits WHERE id = ?').run(id);
   res.json({ deleted: info.changes });
 });
 

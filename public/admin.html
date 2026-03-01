@@ -24,7 +24,7 @@
       font-size: 12px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase;
     }
 
-    .main { max-width: 760px; margin: 0 auto; padding: 32px 16px 60px; }
+    .main { max-width: 860px; margin: 0 auto; padding: 32px 16px 60px; }
 
     .section-label {
       font-size: 11px; letter-spacing: 2px; text-transform: uppercase;
@@ -37,17 +37,21 @@
       border-radius: 16px; overflow: hidden; margin-bottom: 32px;
     }
 
-    table { width: 100%; border-collapse: collapse; font-size: 14px; }
-    thead tr { background: rgba(255,255,255,0.05); }
-    th {
+    /* Date rows */
+    table.dates-tbl { width: 100%; border-collapse: collapse; font-size: 14px; }
+    table.dates-tbl thead tr { background: rgba(255,255,255,0.05); }
+    table.dates-tbl th {
       padding: 12px 16px; text-align: left;
       font-size: 11px; font-weight: 700; letter-spacing: 1px;
       text-transform: uppercase; color: rgba(255,255,255,0.35);
       border-bottom: 1px solid rgba(255,255,255,0.08);
     }
-    td { padding: 13px 16px; border-bottom: 1px solid rgba(255,255,255,0.05); }
-    tr:last-child td { border-bottom: none; }
-    tr:hover td { background: rgba(255,255,255,0.03); }
+    table.dates-tbl td { padding: 13px 16px; border-bottom: 1px solid rgba(255,255,255,0.05); }
+    .date-row { cursor: pointer; transition: background 0.15s; }
+    .date-row:hover td { background: rgba(255,255,255,0.05); }
+    .date-row.open td  { background: rgba(255,255,255,0.04); border-bottom: none; }
+    .expand-icon { display: inline-block; transition: transform 0.2s; margin-right: 8px; color: rgba(255,255,255,0.3); font-size: 12px; }
+    .date-row.open .expand-icon { transform: rotate(90deg); }
 
     .date-cell  { font-family: 'Fredoka One', cursive; font-size: 18px; color: #fff; }
     .num-cell   { font-family: 'Fredoka One', cursive; font-size: 17px; color: #FFD700; }
@@ -61,16 +65,34 @@
       font-family: 'Nunito', sans-serif; vertical-align: middle;
     }
 
+    /* Entries sub-rows */
+    .entries-row td { padding: 0; border-bottom: 1px solid rgba(255,255,255,0.08); }
+    .entries-wrap { background: rgba(0,0,0,0.25); padding: 0 0 8px; }
+    table.entries-tbl { width: 100%; border-collapse: collapse; font-size: 13px; }
+    table.entries-tbl th {
+      padding: 8px 14px; text-align: left;
+      font-size: 10px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase;
+      color: rgba(255,255,255,0.25); border-bottom: 1px solid rgba(255,255,255,0.06);
+    }
+    table.entries-tbl td { padding: 10px 14px; border-bottom: 1px solid rgba(255,255,255,0.04); }
+    table.entries-tbl tr:last-child td { border-bottom: none; }
+    .entry-hour { font-family: 'Fredoka One', cursive; font-size: 15px; color: rgba(255,255,255,0.7); }
+    .entry-num  { font-family: 'Fredoka One', cursive; font-size: 14px; }
+    .entry-id   { font-size: 11px; color: rgba(255,255,255,0.2); }
+    .entries-loading { padding: 16px 14px; color: rgba(255,255,255,0.25); font-size: 13px; }
+
+    /* Buttons */
     .del-btn {
       background: transparent;
-      border: 1px solid rgba(230,57,70,0.35);
-      color: rgba(230,57,70,0.6);
+      border: 1px solid rgba(230,57,70,0.35); color: rgba(230,57,70,0.6);
       border-radius: 7px; padding: 6px 14px;
       font-family: 'Nunito', sans-serif; font-size: 13px; font-weight: 700;
       cursor: pointer; transition: border-color 0.15s, color 0.15s, background 0.15s;
+      white-space: nowrap;
     }
     .del-btn:hover { border-color: #e63946; color: #e63946; background: rgba(230,57,70,0.08); }
     .del-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+    .del-btn.sm { padding: 4px 10px; font-size: 12px; border-radius: 5px; }
 
     .empty { padding: 40px; text-align: center; color: rgba(255,255,255,0.2); font-size: 14px; }
 
@@ -86,6 +108,7 @@
     .toast.ok  { border-color: rgba(0,200,150,0.4); color: #00c896; }
     .toast.err { border-color: rgba(230,57,70,0.4); color: #e63946; }
 
+    .toolbar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
     .refresh-btn {
       background: transparent; border: 1px solid rgba(255,255,255,0.15);
       color: rgba(255,255,255,0.45); border-radius: 8px; padding: 7px 16px;
@@ -93,8 +116,6 @@
       transition: border-color 0.2s, color 0.2s;
     }
     .refresh-btn:hover { border-color: rgba(255,255,255,0.4); color: #fff; }
-
-    .toolbar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
   </style>
 </head>
 <body>
@@ -115,7 +136,7 @@
   </div>
 
   <div class="card">
-    <table>
+    <table class="dates-tbl">
       <thead>
         <tr>
           <th>Date</th>
@@ -137,6 +158,11 @@
 
 <script>
   const today = new Date().toISOString().slice(0, 10);
+  const AGE_COLS = ['toddler','preschool','school_age','teen','adult'];
+  const AGE_LABELS = { toddler:'Toddler', preschool:'Preschool', school_age:'School', teen:'Teen', adult:'Adult' };
+  const AGE_COLORS = { toddler:'#FF6B9D', preschool:'#FF9F43', school_age:'#54A0FF', teen:'#A29BFE', adult:'#00CEC9' };
+
+  let openDates = new Set();
 
   function showToast(msg, type) {
     const t = document.getElementById('toast');
@@ -145,45 +171,180 @@
     setTimeout(() => { t.className = 'toast'; }, 3000);
   }
 
+  function hourLabel(h) {
+    return String(h).padStart(2,'0') + ':00';
+  }
+
   async function load() {
     const tbody = document.getElementById('tbody');
     tbody.innerHTML = '<tr><td colspan="5" class="empty">Loading…</td></tr>';
+    openDates.clear();
     try {
       const rows = await fetch('/api/dates').then(r => r.json());
       if (!rows.length) {
         tbody.innerHTML = '<tr><td colspan="5" class="empty">No data yet.</td></tr>';
         return;
       }
-      tbody.innerHTML = rows.map(row => {
-        const isToday = row.visit_date === today;
-        return `
-          <tr class="${isToday ? 'today-row' : ''}">
-            <td class="date-cell">
-              ${row.visit_date}
-              ${isToday ? '<span class="today-badge">Today</span>' : ''}
-            </td>
-            <td class="num-cell">${row.guests ?? 0}</td>
-            <td class="ft-cell">${row.first_timers ?? 0}</td>
-            <td style="color:rgba(255,255,255,0.45)">${row.entries}</td>
-            <td>
-              <button class="del-btn" onclick="deleteDate('${row.visit_date}', ${row.guests ?? 0})">
-                Delete
-              </button>
-            </td>
-          </tr>`;
-      }).join('');
+      tbody.innerHTML = '';
+      for (const row of rows) renderDateRow(row);
     } catch {
       tbody.innerHTML = '<tr><td colspan="5" class="empty">Cannot reach server.</td></tr>';
     }
   }
 
-  async function deleteDate(date, guests) {
+  function renderDateRow(row) {
+    const tbody  = document.getElementById('tbody');
+    const isToday = row.visit_date === today;
+    const tr = document.createElement('tr');
+    tr.className = `date-row${isToday ? ' today-row' : ''}`;
+    tr.dataset.date = row.visit_date;
+    tr.innerHTML = `
+      <td class="date-cell">
+        <span class="expand-icon">▶</span>${row.visit_date}
+        ${isToday ? '<span class="today-badge">Today</span>' : ''}
+      </td>
+      <td class="num-cell">${row.guests ?? 0}</td>
+      <td class="ft-cell">${row.first_timers ?? 0}</td>
+      <td style="color:rgba(255,255,255,0.45)">${row.entries}</td>
+      <td>
+        <button class="del-btn" onclick="deleteDate(event,'${row.visit_date}',${row.guests ?? 0})">
+          Delete All
+        </button>
+      </td>`;
+    tr.addEventListener('click', e => {
+      if (e.target.closest('button')) return;
+      toggleEntries(tr, row.visit_date);
+    });
+    tbody.appendChild(tr);
+
+    // Placeholder for entries sub-row
+    const er = document.createElement('tr');
+    er.className = 'entries-row';
+    er.id = `entries-${row.visit_date}`;
+    er.style.display = 'none';
+    er.innerHTML = `<td colspan="5"><div class="entries-wrap" id="entries-wrap-${row.visit_date}"></div></td>`;
+    tbody.appendChild(er);
+  }
+
+  async function toggleEntries(tr, date) {
+    const er   = document.getElementById(`entries-${date}`);
+    const wrap = document.getElementById(`entries-wrap-${date}`);
+
+    if (openDates.has(date)) {
+      openDates.delete(date);
+      tr.classList.remove('open');
+      er.style.display = 'none';
+      return;
+    }
+
+    openDates.add(date);
+    tr.classList.add('open');
+    er.style.display = '';
+    wrap.innerHTML = '<div class="entries-loading">Loading entries…</div>';
+
+    try {
+      const entries = await fetch(`/api/entries?date=${date}`).then(r => r.json());
+      renderEntries(wrap, date, entries);
+    } catch {
+      wrap.innerHTML = '<div class="entries-loading">Failed to load entries.</div>';
+    }
+  }
+
+  function renderEntries(wrap, date, entries) {
+    if (!entries.length) {
+      wrap.innerHTML = '<div class="entries-loading">No entries.</div>';
+      return;
+    }
+    const colHeaders = AGE_COLS.map(c =>
+      `<th style="color:${AGE_COLORS[c]}">${AGE_LABELS[c]}</th>`
+    ).join('');
+
+    const rows = entries.map(e => {
+      const ageCols = AGE_COLS.map(c =>
+        `<td class="entry-num" style="color:${e[c] > 0 ? AGE_COLORS[c] : 'rgba(255,255,255,0.18)'}">${e[c] || '—'}</td>`
+      ).join('');
+      return `
+        <tr>
+          <td class="entry-id">#${e.id}</td>
+          <td class="entry-hour">${hourLabel(e.hour)}</td>
+          ${ageCols}
+          <td class="entry-num" style="color:#FFD700">${e.first_time || '—'}</td>
+          <td class="entry-num" style="color:#FFD700">${e.total}</td>
+          <td>
+            <button class="del-btn sm" onclick="deleteEntry(${e.id},'${date}')">Delete</button>
+          </td>
+        </tr>`;
+    }).join('');
+
+    wrap.innerHTML = `
+      <table class="entries-tbl">
+        <thead>
+          <tr>
+            <th>ID</th><th>Hour</th>
+            ${colHeaders}
+            <th style="color:#FFD700">★ 1st</th>
+            <th style="color:#FFD700">Total</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>${rows}</tbody>
+      </table>`;
+  }
+
+  async function deleteEntry(id, date) {
+    if (!confirm(`Delete entry #${id}? This cannot be undone.`)) return;
+    try {
+      const res  = await fetch(`/api/entry/${id}`, { method: 'DELETE' });
+      const data = await res.json();
+      if (data.deleted) {
+        showToast(`Entry #${id} deleted`, 'ok');
+        // Refresh date summary row + entries panel
+        refreshDate(date);
+      } else {
+        showToast('Entry not found', 'err');
+      }
+    } catch {
+      showToast('Delete failed — check server', 'err');
+    }
+  }
+
+  async function refreshDate(date) {
+    try {
+      // Re-fetch the date summary
+      const dates = await fetch('/api/dates').then(r => r.json());
+      const row   = dates.find(d => d.visit_date === date);
+      const tbody = document.getElementById('tbody');
+
+      // Find and update the date row cells
+      const tr = tbody.querySelector(`tr[data-date="${date}"]`);
+      if (!row) {
+        // All entries deleted — remove both rows
+        tr?.nextElementSibling?.remove();
+        tr?.remove();
+        openDates.delete(date);
+        return;
+      }
+      if (tr) {
+        tr.cells[1].textContent = row.guests ?? 0;
+        tr.cells[2].textContent = row.first_timers ?? 0;
+        tr.cells[3].textContent = row.entries;
+      }
+
+      // Refresh the expanded entries panel
+      if (openDates.has(date)) {
+        const wrap    = document.getElementById(`entries-wrap-${date}`);
+        const entries = await fetch(`/api/entries?date=${date}`).then(r => r.json());
+        renderEntries(wrap, date, entries);
+      }
+    } catch {
+      showToast('Refresh failed', 'err');
+    }
+  }
+
+  async function deleteDate(e, date, guests) {
+    e.stopPropagation();
     const label = date === today ? `today (${date})` : date;
-    if (!confirm(`Delete all records for ${label}?\n\n${guests} guests will be removed. This cannot be undone.`)) return;
-
-    const btn = [...document.querySelectorAll('.del-btn')].find(b => b.onclick?.toString().includes(`'${date}'`));
-    if (btn) btn.disabled = true;
-
+    if (!confirm(`Delete ALL records for ${label}?\n\n${guests} guests will be removed. This cannot be undone.`)) return;
     try {
       const res  = await fetch(`/api/log?date=${date}`, { method: 'DELETE' });
       const data = await res.json();
@@ -191,7 +352,6 @@
       load();
     } catch {
       showToast('Delete failed — check server connection', 'err');
-      if (btn) btn.disabled = false;
     }
   }
 
