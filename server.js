@@ -77,7 +77,7 @@ app.get('/api/log', (req, res) => {
 
 // POST /api/log  — body: { hour, firstTime, counts: { toddler, preschool, schoolAge, teen, adult } }
 app.post('/api/log', (req, res) => {
-  const { hour, counts, firstTime } = req.body;
+  const { date, hour, counts, firstTime } = req.body;
   if (hour === undefined || !counts) {
     return res.status(400).json({ error: 'Missing hour or counts' });
   }
@@ -87,7 +87,7 @@ app.post('/api/log', (req, res) => {
     INSERT INTO visits (visit_date, hour, toddler, preschool, school_age, teen, adult, total, first_time)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
   `).run(
-    todayStr(),
+    date || todayStr(),
     hour,
     counts.toddler   || 0,
     counts.preschool || 0,

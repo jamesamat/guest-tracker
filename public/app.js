@@ -15,6 +15,14 @@ function getHourLabel(h) {
   return `${String(h).padStart(2, "0")}:00`;
 }
 
+function localDateStr() {
+  const d = new Date();
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
 async function apiFetch(method, path, body) {
   const opts = { method, headers: { "Content-Type": "application/json" } };
   if (body !== undefined) opts.body = JSON.stringify(body);
@@ -60,7 +68,7 @@ function App() {
     if (total === 0) return;
     const hour = now.getHours();
     try {
-      const entry = await apiFetch("POST", "/api/log", { hour, counts, firstTime });
+      const entry = await apiFetch("POST", "/api/log", { date: localDateStr(), hour, counts, firstTime });
       setLog(prev => [...prev, entry]);
       setFlashMsg(`${total} guest${total > 1 ? "s" : ""} logged for ${getHourLabel(hour)}`);
       setCounts(defaultCounts());
