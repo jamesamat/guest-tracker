@@ -17,9 +17,15 @@ db.exec(`
     teen       INTEGER NOT NULL DEFAULT 0,
     adult      INTEGER NOT NULL DEFAULT 0,
     total      INTEGER NOT NULL DEFAULT 0,
+    first_time INTEGER NOT NULL DEFAULT 0,
     logged_at  TEXT    NOT NULL DEFAULT (datetime('now', 'localtime'))
   )
 `);
+
+// Migration: add first_time column to existing databases
+try {
+  db.exec('ALTER TABLE visits ADD COLUMN first_time INTEGER NOT NULL DEFAULT 0');
+} catch (_) { /* column already exists — safe to ignore */ }
 
 // ─── Middleware ────────────────────────────────────────────────────────────────
 app.use(express.json());
@@ -37,8 +43,9 @@ function todayStr() {
 // Map a flat DB row back to the shape the React client expects
 function rowToEntry(row) {
   return {
-    id:   row.id,
-    hour: row.hour,
+    id:        row.id,
+    hour:      row.hour,
+    firstTime: row.first_time,
     counts: {
       toddler:   row.toddler,
       preschool: row.preschool,
@@ -60,17 +67,17 @@ app.get('/api/log', (req, res) => {
   res.json(rows.map(rowToEntry));
 });
 
-// POST /api/log  — body: { hour, counts: { toddler, preschool, schoolAge, teen, adult } }
+// POST /api/log  — body: { hour, firstTime, counts: { toddler, preschool, schoolAge, teen, adult } }
 app.post('/api/log', (req, res) => {
-  const { hour, counts } = req.body;
+  const { hour, counts, firstTime } = req.body;
   if (hour === undefined || !counts) {
     return res.status(400).json({ error: 'Missing hour or counts' });
   }
 
   const total  = Object.values(counts).reduce((a, b) => a + b, 0);
   const result = db.prepare(`
-    INSERT INTO visits (visit_date, hour, toddler, preschool, school_age, teen, adult, total)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO visits (visit_date, hour, toddler, preschool, school_age, teen, adult, total, first_time)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
   `).run(
     todayStr(),
     hour,
@@ -80,6 +87,7 @@ app.post('/api/log', (req, res) => {
     counts.teen      || 0,
     counts.adult     || 0,
     total,
+    firstTime        || 0,
   );
 
   const row = db.prepare('SELECT * FROM visits WHERE id = ?').get(result.lastInsertRowid);
@@ -106,7 +114,7 @@ app.get('/api/export/json', (req, res) => {
 // GET /api/export/csv  — full history as CSV (downloadable or PowerBI Web)
 app.get('/api/export/csv', (req, res) => {
   const rows    = db.prepare('SELECT * FROM visits ORDER BY visit_date, hour, id').all();
-  const headers = ['id', 'visit_date', 'hour', 'toddler', 'preschool', 'school_age', 'teen', 'adult', 'total', 'logged_at'];
+  const headers = ['id', 'visit_date', 'hour', 'toddler', 'preschool', 'school_age', 'teen', 'adult', 'total', 'first_time', 'logged_at'];
   const lines   = [
     headers.join(','),
     ...rows.map(r => headers.map(h => JSON.stringify(r[h] ?? '')).join(',')),

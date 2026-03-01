@@ -67,6 +67,28 @@ html, body { margin: 0; padding: 0; background: #0f0f1a; }
 .btn-round:active { transform: scale(0.85); }
 .btn-minus { background: rgba(255,255,255,0.1); color: #fff; }
 
+.first-time-card {
+  background: rgba(255,215,0,0.07);
+  border: 1.5px solid rgba(255,215,0,0.3);
+  border-radius: 14px;
+  padding: 16px 18px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+  animation: fadeIn 0.3s ease both;
+}
+.first-time-label {
+  font-family: 'Fredoka One', cursive;
+  font-size: 21px;
+  line-height: 1;
+  color: #FFD700;
+}
+.btn-ft-plus {
+  background: #FFD700;
+  color: #0f0f1a;
+}
+
 .total-row {
   display: flex;
   justify-content: space-between;

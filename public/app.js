@@ -27,12 +27,13 @@ async function apiFetch(method, path, body) {
 }
 
 function App() {
-  const [counts,   setCounts]   = useState(defaultCounts());
-  const [log,      setLog]      = useState([]);
-  const [now,      setNow]      = useState(new Date());
-  const [flashMsg, setFlashMsg] = useState(null);
-  const [loading,  setLoading]  = useState(true);
-  const [apiError, setApiError] = useState(null);
+  const [counts,    setCounts]    = useState(defaultCounts());
+  const [firstTime, setFirstTime] = useState(0);
+  const [log,       setLog]       = useState([]);
+  const [now,       setNow]       = useState(new Date());
+  const [flashMsg,  setFlashMsg]  = useState(null);
+  const [loading,   setLoading]   = useState(true);
+  const [apiError,  setApiError]  = useState(null);
 
   // Load today's log from server on mount
   useEffect(() => {
@@ -55,10 +56,11 @@ function App() {
     if (total === 0) return;
     const hour = now.getHours();
     try {
-      const entry = await apiFetch("POST", "/api/log", { hour, counts });
+      const entry = await apiFetch("POST", "/api/log", { hour, counts, firstTime });
       setLog(prev => [...prev, entry]);
       setFlashMsg(`${total} guest${total > 1 ? "s" : ""} logged for ${getHourLabel(hour)}`);
       setCounts(defaultCounts());
+      setFirstTime(0);
       setTimeout(() => setFlashMsg(null), 3000);
     } catch {
       setFlashMsg("Save failed — check server connection");
@@ -72,6 +74,7 @@ function App() {
       await apiFetch("DELETE", "/api/log");
       setLog([]);
       setCounts(defaultCounts());
+      setFirstTime(0);
     } catch {
       alert("Error clearing data — check server connection");
     }
@@ -80,13 +83,15 @@ function App() {
   // Build hour map for summary table
   const hourMap = {};
   for (const entry of log) {
-    if (!hourMap[entry.hour]) hourMap[entry.hour] = defaultCounts();
+    if (!hourMap[entry.hour]) hourMap[entry.hour] = { ...defaultCounts(), firstTime: 0 };
     for (const g of AGE_GROUPS) hourMap[entry.hour][g.key] += entry.counts[g.key];
+    hourMap[entry.hour].firstTime += entry.firstTime || 0;
   }
-  const hours      = Object.keys(hourMap).map(Number).sort((a, b) => a - b);
-  const grandTotal = log.reduce(
+  const hours         = Object.keys(hourMap).map(Number).sort((a, b) => a - b);
+  const grandTotal    = log.reduce(
     (sum, e) => sum + Object.values(e.counts).reduce((a, b) => a + b, 0), 0
   );
+  const grandFirstTime = log.reduce((s, e) => s + (e.firstTime || 0), 0);
 
   if (loading) return (
     <div style={{ minHeight: "100vh", background: "#0f0f1a", display: "flex", alignItems: "center", justifyContent: "center" }}>
@@ -142,6 +147,31 @@ function App() {
           </div>
         ))}
 
+        {/* First Time Guest card */}
+        <div className="section-label" style={{ marginTop: 20 }}>First Time Visit</div>
+        <div className="first-time-card">
+          <div>
+            <div className="first-time-label">★ First Visit</div>
+            <div className="group-range">New guests today</div>
+          </div>
+          <div className="counter-wrap">
+            <button
+              className="btn-round btn-minus"
+              onClick={() => setFirstTime(n => Math.max(0, n - 1))}
+            >−</button>
+            <div
+              className="count-num"
+              style={{ color: firstTime > 0 ? "#FFD700" : "rgba(255,255,255,0.18)" }}
+            >
+              {firstTime}
+            </div>
+            <button
+              className="btn-round btn-ft-plus"
+              onClick={() => setFirstTime(n => n + 1)}
+            >+</button>
+          </div>
+        </div>
+
         {/* Total + Reset */}
         <div className="total-row">
           <div className="total-label">
@@ -172,6 +202,7 @@ function App() {
             <div className="summary-title">Today's Summary</div>
             <div className="summary-count">
               {grandTotal > 0 ? `${grandTotal} guests` : "No entries yet"}
+              {grandFirstTime > 0 && ` · ★ ${grandFirstTime} first-time`}
             </div>
           </div>
 
@@ -186,6 +217,7 @@ function App() {
                     {AGE_GROUPS.map(g => (
                       <th key={g.key} style={{ color: g.color }}>{g.label}</th>
                     ))}
+                    <th style={{ color: "#FFD700" }}>★ 1st</th>
                     <th style={{ color: "#FFD700" }}>Total</th>
                   </tr>
                 </thead>
@@ -206,6 +238,9 @@ function App() {
                             {hourMap[h][g.key] || "—"}
                           </td>
                         ))}
+                        <td style={{ color: hourMap[h].firstTime > 0 ? "#FFD700" : "rgba(255,255,255,0.18)", fontWeight: 700 }}>
+                          {hourMap[h].firstTime || "—"}
+                        </td>
                         <td style={{ fontFamily: "'Fredoka One', cursive", fontSize: 17, color: "#FFD700" }}>
                           {rowTotal}
                         </td>
@@ -228,6 +263,9 @@ function App() {
                         </td>
                       );
                     })}
+                    <td style={{ color: grandFirstTime > 0 ? "#FFD700" : "rgba(255,255,255,0.18)", fontSize: 17 }}>
+                      {grandFirstTime || "—"}
+                    </td>
                     <td style={{ color: "#FFD700", fontSize: 20 }}>{grandTotal}</td>
                   </tr>
                 </tbody>
