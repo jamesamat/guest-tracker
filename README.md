@@ -132,7 +132,52 @@ Then: PowerBI → **Get Data → Text/CSV**
 | `teen` | INTEGER | Ages 13–17 |
 | `adult` | INTEGER | Ages 18+ |
 | `total` | INTEGER | Sum of all groups |
+| `first_time` | INTEGER | First-time guests in this entry |
 | `logged_at` | TEXT | Full timestamp |
+
+---
+
+## Managing the Database
+
+The SQLite database (`guests.db`) lives in two places:
+
+| Environment | Location |
+|-------------|----------|
+| Local dev (your PC) | `d:\Desktop\Projects\Websites\guest_tracker\guests.db` |
+| Production (Docker) | Inside container at `/app/guests.db` |
+
+### Deleting Records
+
+**Option 1 — Reset Day button (UI)**
+Clears today's entries via the button in the app.
+
+**Option 2 — By date via API**
+```bash
+curl -X DELETE "http://192.168.20.66:41080/api/log?date=2026-02-28"
+```
+
+**Option 3 — Copy DB out, edit visually, copy back**
+```powershell
+# On 192.168.20.66 — copy out
+docker cp guest-tracker:/app/guests.db C:\GuestTracker\guests.db
+
+# Open with DB Browser for SQLite (free GUI): https://sqlitebrowser.org/
+# Delete rows, save, then copy back:
+docker cp C:\GuestTracker\guests.db guest-tracker:/app/guests.db
+```
+
+**Option 4 — SQLite shell inside the container**
+```powershell
+docker exec -it guest-tracker bash
+sqlite3 /app/guests.db
+```
+```sql
+-- Delete a specific day
+DELETE FROM visits WHERE visit_date = '2026-02-28';
+
+-- Delete everything
+DELETE FROM visits;
+```
 
 ---
 
