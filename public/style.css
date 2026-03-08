@@ -18,9 +18,9 @@ html, body { margin: 0; padding: 0; background: #0f0f1a; }
   justify-content: space-between;
   box-shadow: 0 4px 16px rgba(0,0,0,0.4);
 }
-.header-title { font-family: 'Fredoka One', cursive; font-size: 26px; color: #fff; line-height: 1; }
+.header-title { font-family: 'Fredoka One', sans-serif; font-size: 26px; color: #fff; line-height: 1; }
 .header-sub   { font-size: 11px; color: rgba(255,255,255,0.75); letter-spacing: 1.5px; text-transform: uppercase; margin-top: 3px; }
-.clock        { font-family: 'Fredoka One', cursive; font-size: 26px; color: #FFD700; text-align: right; line-height: 1; }
+.clock        { font-family: 'Fredoka One', sans-serif; font-size: 26px; color: #FFD700; text-align: right; line-height: 1; }
 
 .main { max-width: 640px; margin: 0 auto; padding: 24px 16px 60px; }
 
@@ -41,12 +41,12 @@ html, body { margin: 0; padding: 0; background: #0f0f1a; }
   margin-bottom: 10px;
   animation: fadeIn 0.3s ease both;
 }
-.group-label { font-family: 'Fredoka One', cursive; font-size: 21px; line-height: 1; }
+.group-label { font-family: 'Fredoka One', sans-serif; font-size: 21px; line-height: 1; }
 .group-range { font-family: 'Nunito', sans-serif; font-size: 12px; color: rgba(255,255,255,0.4); margin-top: 3px; }
 
 .counter-wrap { display: flex; align-items: center; gap: 16px; }
 .count-num {
-  font-family: 'Fredoka One', cursive; font-size: 32px;
+  font-family: 'Fredoka One', sans-serif; font-size: 32px;
   min-width: 40px; text-align: center;
   transition: color 0.15s;
 }
@@ -79,7 +79,7 @@ html, body { margin: 0; padding: 0; background: #0f0f1a; }
   animation: fadeIn 0.3s ease both;
 }
 .first-time-label {
-  font-family: 'Fredoka One', cursive;
+  font-family: 'Fredoka One', sans-serif;
   font-size: 21px;
   line-height: 1;
   color: #FFD700;
@@ -100,7 +100,7 @@ html, body { margin: 0; padding: 0; background: #0f0f1a; }
   font-size: 14px; color: rgba(255,255,255,0.45);
 }
 .total-num {
-  font-family: 'Fredoka One', cursive;
+  font-family: 'Fredoka One', sans-serif;
   font-size: 24px;
   transition: color 0.15s;
 }
@@ -110,7 +110,7 @@ html, body { margin: 0; padding: 0; background: #0f0f1a; }
   background: #FFD700;
   border: none; border-radius: 14px;
   padding: 18px;
-  font-family: 'Fredoka One', cursive;
+  font-family: 'Fredoka One', sans-serif;
   font-size: 22px;
   color: #0f0f1a;
   cursor: pointer;
@@ -139,7 +139,7 @@ html, body { margin: 0; padding: 0; background: #0f0f1a; }
   border-radius: 10px;
   padding: 12px 16px;
   text-align: center;
-  font-family: 'Fredoka One', cursive;
+  font-family: 'Fredoka One', sans-serif;
   font-size: 17px;
   color: #FFD700;
   animation: pop 0.4s ease;
@@ -170,7 +170,7 @@ html, body { margin: 0; padding: 0; background: #0f0f1a; }
   padding: 14px 18px;
   display: flex; justify-content: space-between; align-items: center;
 }
-.summary-title { font-family: 'Fredoka One', cursive; font-size: 19px; color: #fff; }
+.summary-title { font-family: 'Fredoka One', sans-serif; font-size: 19px; color: #fff; }
 .summary-count { font-family: 'Nunito', sans-serif; font-size: 13px; color: #FFD700; font-weight: 700; }
 
 .empty-state {
@@ -193,11 +193,11 @@ td {
 }
 td.hour-cell {
   text-align: left; padding-left: 16px;
-  font-family: 'Fredoka One', cursive; font-size: 17px; color: #fff;
+  font-family: 'Fredoka One', sans-serif; font-size: 17px; color: #fff;
 }
 .total-tbl-row td {
   border-top: 1.5px solid rgba(255,255,255,0.15);
   background: rgba(255,215,0,0.05);
-  font-family: 'Fredoka One', cursive; font-size: 17px;
+  font-family: 'Fredoka One', sans-serif; font-size: 17px;
 }
 .total-tbl-row .hour-cell { color: #FFD700; }
