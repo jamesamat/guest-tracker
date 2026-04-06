@@ -142,6 +142,52 @@
     }
 
     .empty { padding: 32px; text-align: center; color: rgba(255,255,255,0.2); font-size: 13px; }
+
+    /* ── Filter bar ── */
+    .filter-bar {
+      background: rgba(255,255,255,0.03);
+      border: 1.5px solid rgba(255,255,255,0.07);
+      border-radius: 14px;
+      padding: 14px 18px;
+      display: flex; flex-wrap: wrap; align-items: flex-end; gap: 14px;
+      margin-bottom: 24px;
+    }
+    .filter-group { display: flex; flex-direction: column; gap: 5px; }
+    .filter-label { font-size: 10px; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase; color: rgba(255,255,255,0.3); }
+    .filter-input {
+      background: rgba(255,255,255,0.06);
+      border: 1.5px solid rgba(255,255,255,0.1);
+      border-radius: 8px; padding: 8px 10px;
+      font-family: 'Nunito', sans-serif; font-size: 13px; color: #fff;
+      outline: none; transition: border-color 0.15s;
+      width: 140px;
+    }
+    .filter-input[type="number"] { width: 80px; }
+    .filter-input:focus { border-color: #54A0FF; }
+    .filter-input::-webkit-calendar-picker-indicator { filter: invert(0.5); cursor: pointer; }
+    .filter-actions { display: flex; gap: 8px; align-items: flex-end; margin-left: auto; }
+    .filter-apply-btn {
+      background: #54A0FF; border: none; border-radius: 8px;
+      padding: 9px 18px; font-family: 'Nunito', sans-serif; font-size: 13px;
+      font-weight: 700; color: #fff; cursor: pointer; transition: opacity 0.15s;
+      white-space: nowrap;
+    }
+    .filter-apply-btn:hover { opacity: 0.85; }
+    .filter-clear-btn {
+      background: transparent; border: 1.5px solid rgba(255,255,255,0.12);
+      border-radius: 8px; padding: 9px 14px;
+      font-family: 'Nunito', sans-serif; font-size: 13px;
+      color: rgba(255,255,255,0.4); cursor: pointer; transition: all 0.15s;
+      white-space: nowrap;
+    }
+    .filter-clear-btn:hover { border-color: #e63946; color: #e63946; }
+    .filter-active-badge {
+      display: inline-flex; align-items: center;
+      background: rgba(84,160,255,0.12); border: 1px solid rgba(84,160,255,0.3);
+      color: #54A0FF; border-radius: 6px; padding: 3px 9px;
+      font-size: 11px; font-weight: 700; letter-spacing: 0.5px;
+      margin-left: 8px; vertical-align: middle;
+    }
   </style>
 </head>
 <body>
@@ -174,6 +220,30 @@
 
 <div class="main">
 
+  <!-- Filter bar -->
+  <div class="filter-bar">
+    <div class="filter-group">
+      <div class="filter-label">Date From</div>
+      <input id="f-date-from" class="filter-input" type="date" />
+    </div>
+    <div class="filter-group">
+      <div class="filter-label">Date To</div>
+      <input id="f-date-to" class="filter-input" type="date" />
+    </div>
+    <div class="filter-group">
+      <div class="filter-label">Hour From</div>
+      <input id="f-hour-from" class="filter-input" type="number" min="0" max="23" placeholder="0" />
+    </div>
+    <div class="filter-group">
+      <div class="filter-label">Hour To</div>
+      <input id="f-hour-to" class="filter-input" type="number" min="0" max="23" placeholder="23" />
+    </div>
+    <div class="filter-actions">
+      <button class="filter-clear-btn" onclick="clearFilters()">Clear</button>
+      <button class="filter-apply-btn" onclick="load()">Apply</button>
+    </div>
+  </div>
+
   <!-- KPI cards -->
   <div class="kpi-row" id="kpi-row">
     <div class="kpi-card"><div class="kpi-label">Loading</div><div class="kpi-value" style="color:rgba(255,255,255,0.15)">…</div></div>
@@ -182,11 +252,11 @@
   <!-- Age breakdown + Peak hours -->
   <div class="grid-2">
     <div>
-      <div class="section-label">Age Breakdown — All Time</div>
+      <div class="section-label">Age Breakdown <span id="lbl-age"></span></div>
       <div class="card"><div class="card-body" id="age-breakdown"><div class="empty">Loading…</div></div></div>
     </div>
     <div>
-      <div class="section-label">Peak Hours — All Time</div>
+      <div class="section-label">Peak Hours <span id="lbl-hours"></span></div>
       <div class="card"><div class="card-body" id="peak-hours"><div class="empty">Loading…</div></div></div>
     </div>
   </div>
@@ -194,7 +264,7 @@
   <!-- Top residences + Daily trend -->
   <div class="grid-2">
     <div>
-      <div class="section-label">Top Residences</div>
+      <div class="section-label">Top Residences <span id="lbl-res"></span></div>
       <div class="card"><div class="card-body" id="top-residence"><div class="empty">Loading…</div></div></div>
     </div>
     <div>
@@ -273,9 +343,48 @@
   function pct(a, b) { return b ? Math.round((a / b) * 100) : 0; }
   function hourLabel(h) { return String(h).padStart(2,'0') + ':00'; }
 
+  function getFilters() {
+    const df = document.getElementById('f-date-from').value;
+    const dt = document.getElementById('f-date-to').value;
+    const hf = document.getElementById('f-hour-from').value;
+    const ht = document.getElementById('f-hour-to').value;
+    return { date_from: df, date_to: dt, hour_from: hf, hour_to: ht };
+  }
+
+  function clearFilters() {
+    document.getElementById('f-date-from').value = '';
+    document.getElementById('f-date-to').value   = '';
+    document.getElementById('f-hour-from').value = '';
+    document.getElementById('f-hour-to').value   = '';
+    load();
+  }
+
+  function filterLabel(f) {
+    const parts = [];
+    if (f.date_from || f.date_to) {
+      parts.push((f.date_from || '…') + ' → ' + (f.date_to || '…'));
+    }
+    if (f.hour_from !== '' || f.hour_to !== '') {
+      const hf = f.hour_from !== '' ? String(f.hour_from).padStart(2,'0') + ':00' : '00:00';
+      const ht = f.hour_to   !== '' ? String(f.hour_to).padStart(2,'0')   + ':00' : '23:00';
+      parts.push(hf + ' – ' + ht);
+    }
+    return parts.length ? '<span class="filter-active-badge">' + parts.join(' · ') + '</span>' : '— All Time';
+  }
+
   async function load() {
+    const f   = getFilters();
+    const qs  = new URLSearchParams();
+    if (f.date_from) qs.set('date_from', f.date_from);
+    if (f.date_to)   qs.set('date_to',   f.date_to);
+    if (f.hour_from !== '') qs.set('hour_from', f.hour_from);
+    if (f.hour_to   !== '') qs.set('hour_to',   f.hour_to);
+    const url = '/api/dashboard' + (qs.toString() ? '?' + qs : '');
+    const lbl = filterLabel(f);
+    ['lbl-age','lbl-hours','lbl-res'].forEach(id => document.getElementById(id).innerHTML = lbl);
+
     try {
-      const d = await apiFetch('/api/dashboard');
+      const d = await apiFetch(url);
       renderKPIs(d);
       renderAge(d.totals, d.today);
       renderPeakHours(d.byHour);

@@ -227,8 +227,19 @@ app.get('/api/export/csv', requireExportKey, (_req, res) => {
 
 // ─── Admin API Routes (port 3001 / 41081 only) ────────────────────────────────
 
-// GET /api/dashboard  — summary stats for manager dashboard
-function dashboardHandler(_req, res) {
+// GET /api/dashboard?date_from=&date_to=&hour_from=&hour_to=
+function dashboardHandler(req, res) {
+  const { date_from, date_to, hour_from, hour_to } = req.query;
+
+  // Build WHERE clause from optional filters
+  const conditions = [];
+  const params     = [];
+  if (date_from) { conditions.push('visit_date >= ?'); params.push(date_from); }
+  if (date_to)   { conditions.push('visit_date <= ?'); params.push(date_to);   }
+  if (hour_from !== undefined && hour_from !== '') { conditions.push('hour >= ?'); params.push(Number(hour_from)); }
+  if (hour_to   !== undefined && hour_to   !== '') { conditions.push('hour <= ?'); params.push(Number(hour_to));   }
+  const where = conditions.length ? 'WHERE ' + conditions.join(' AND ') : '';
+
   const totals = db.prepare(`
     SELECT
       SUM(total)      AS total_guests,
@@ -239,8 +250,8 @@ function dashboardHandler(_req, res) {
       SUM(teen)       AS total_teen,
       SUM(adult)      AS total_adult,
       COUNT(DISTINCT visit_date) AS total_days
-    FROM visits
-  `).get();
+    FROM visits ${where}
+  `).get(...params);
 
   const today = db.prepare(`
     SELECT
@@ -256,26 +267,26 @@ function dashboardHandler(_req, res) {
 
   const byDay = db.prepare(`
     SELECT visit_date, SUM(total) AS guests, SUM(first_time) AS first_time
-    FROM visits GROUP BY visit_date ORDER BY visit_date
-  `).all();
+    FROM visits ${where} GROUP BY visit_date ORDER BY visit_date
+  `).all(...params);
 
   const byHour = db.prepare(`
     SELECT hour, SUM(total) AS guests
-    FROM visits GROUP BY hour ORDER BY hour
-  `).all();
+    FROM visits ${where} GROUP BY hour ORDER BY hour
+  `).all(...params);
 
   const byResidence = db.prepare(`
     SELECT
       CASE WHEN residence = '' OR residence IS NULL THEN 'Unknown' ELSE residence END AS residence,
       district, resort,
       SUM(total) AS guests
-    FROM visits
+    FROM visits ${where}
     GROUP BY residence, district, resort
     ORDER BY guests DESC
     LIMIT 20
-  `).all();
+  `).all(...params);
 
-  res.json({ totals, today, byDay, byHour, byResidence });
+  res.json({ totals, today, byDay, byHour, byResidence, filters: { date_from, date_to, hour_from, hour_to } });
 }
 
 // Register dashboard handler on admin port (no auth needed — admin port is internal only)
