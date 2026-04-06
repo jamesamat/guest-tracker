@@ -250,21 +250,12 @@ td.hour-cell {
   color: #fff;
   outline: none;
   transition: border-color 0.15s;
+  appearance: none;
+  -webkit-appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='rgba(255,255,255,0.4)' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 14px center;
+  cursor: pointer;
 }
 .residence-input:focus { border-color: #54A0FF; }
-.residence-input::placeholder { color: rgba(255,255,255,0.25); }
-
-.res-clear-btn {
-  display: block;
-  margin-top: 8px;
-  background: transparent;
-  border: none;
-  color: rgba(255,255,255,0.3);
-  font-family: 'Nunito', sans-serif;
-  font-size: 12px;
-  cursor: pointer;
-  padding: 0;
-  -webkit-tap-highlight-color: transparent;
-  transition: color 0.15s;
-}
-.res-clear-btn:hover { color: #e63946; }
+.residence-input option { background: #1a1a2e; color: #fff; }
