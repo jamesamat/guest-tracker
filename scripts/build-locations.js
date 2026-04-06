@@ -3,7 +3,7 @@
  * Build public/data/locations.json
  *
  * Sources:
- *   - Suriname populated places  → OpenStreetMap Overpass API (free, no key)
+ *   - Suriname populated places  → GeoNames free API (no key needed for demo)
  *   - Country list               → restcountries.com (free, no key)
  *
  * Run once (or whenever you want fresh data):
@@ -30,20 +30,18 @@ function get(url) {
 }
 
 async function fetchSurinamePlaces() {
-  // Fetch all city/town/village/suburb/hamlet nodes inside Suriname
-  // Bounding box covers Suriname: S 1.837, W -58.071, N 6.003, E -53.978
-  const query = `[out:json][timeout:60];
-node["place"~"^(city|town|village|suburb|hamlet)$"](1.837,-58.071,6.003,-53.978);
-out body;`;
-
-  const url = `https://overpass-api.de/api/interpreter?data=${encodeURIComponent(query)}`;
-  console.log('Fetching Suriname places from OpenStreetMap Overpass API…');
+  // GeoNames free API — populated places in Suriname (country code SR)
+  // Uses the public demo account (2000 req/hr limit — fine for a one-time run)
+  const url = 'https://secure.geonames.org/searchJSON?country=SR&featureClass=P&maxRows=1000&orderby=population&username=demo';
+  console.log('Fetching Suriname places from GeoNames…');
   const data = await get(url);
+
+  if (!data.geonames) throw new Error(`GeoNames error: ${JSON.stringify(data)}`);
 
   const places = [
     ...new Set(
-      data.elements
-        .map(e => e.tags['name:nl'] || e.tags.name)  // prefer Dutch name
+      data.geonames
+        .map(p => p.name)
         .filter(Boolean)
         .sort((a, b) => a.localeCompare(b, 'nl'))
     ),
