@@ -31,11 +31,9 @@ function get(url) {
 
 async function fetchSurinamePlaces() {
   // Fetch all city/town/village/suburb/hamlet nodes inside Suriname
+  // Bounding box covers Suriname: S 1.837, W -58.071, N 6.003, E -53.978
   const query = `[out:json][timeout:60];
-area["ISO3166-1:alpha2"="SR"]["admin_level"="2"]->.sur;
-(
-  node["place"~"^(city|town|village|suburb|hamlet)$"](area.sur);
-);
+node["place"~"^(city|town|village|suburb|hamlet)$"](1.837,-58.071,6.003,-53.978);
 out body;`;
 
   const url = `https://overpass-api.de/api/interpreter?data=${encodeURIComponent(query)}`;
