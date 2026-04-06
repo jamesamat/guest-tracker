@@ -32,7 +32,7 @@ function get(url) {
 async function fetchSurinamePlaces() {
   // Fetch all city/town/village/suburb/hamlet nodes inside Suriname
   const query = `[out:json][timeout:60];
-area["name"="Suriname"]["admin_level"="2"]->.sur;
+area["ISO3166-1:alpha2"="SR"]["admin_level"="2"]->.sur;
 (
   node["place"~"^(city|town|village|suburb|hamlet)$"](area.sur);
 );
