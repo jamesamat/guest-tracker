@@ -3,7 +3,7 @@
  * Build public/data/locations.json
  *
  * Sources:
- *   - Suriname populated places  → GeoNames free API (no key needed for demo)
+ *   - Suriname populated places  → Wikipedia "Populated places in Suriname" category (free, no key)
  *   - Country list               → restcountries.com (free, no key)
  *
  * Run once (or whenever you want fresh data):
@@ -16,7 +16,7 @@ const path  = require('path');
 
 function get(url) {
   return new Promise((resolve, reject) => {
-    const req = https.get(url, { headers: { 'User-Agent': 'GuestTracker/1.0' } }, res => {
+    const req = https.get(url, { headers: { 'User-Agent': 'GuestTracker/1.0 (guest-tracker)' } }, res => {
       const chunks = [];
       res.on('data', c => chunks.push(c));
       res.on('end', () => {
@@ -30,25 +30,39 @@ function get(url) {
 }
 
 async function fetchSurinamePlaces() {
-  // GeoNames free API — populated places in Suriname (country code SR)
-  // Uses the public demo account (2000 req/hr limit — fine for a one-time run)
-  const url = 'https://secure.geonames.org/searchJSON?country=SR&featureClass=P&maxRows=1000&orderby=population&username=demo';
-  console.log('Fetching Suriname places from GeoNames…');
-  const data = await get(url);
+  // Wikipedia category API — pages in "Populated places in Suriname"
+  // Paginates with cmcontinue until all results are fetched
+  const base = 'https://en.wikipedia.org/w/api.php?action=query&list=categorymembers'
+    + '&cmtitle=Category:Populated_places_in_Suriname'
+    + '&format=json&cmlimit=500&cmtype=page';
 
-  if (!data.geonames) throw new Error(`GeoNames error: ${JSON.stringify(data)}`);
+  console.log('Fetching Suriname places from Wikipedia…');
 
-  const places = [
+  let places = [];
+  let continueParam = '';
+
+  do {
+    const url  = continueParam ? `${base}&cmcontinue=${continueParam}` : base;
+    const data = await get(url);
+
+    const titles = (data.query?.categorymembers || []).map(m => m.title);
+    places.push(...titles);
+
+    continueParam = data.continue?.cmcontinue || '';
+  } while (continueParam);
+
+  // Strip disambiguation suffixes like "Paramaribo (city)"
+  const cleaned = [
     ...new Set(
-      data.geonames
-        .map(p => p.name)
+      places
+        .map(t => t.replace(/\s*\(.*?\)\s*$/, '').trim())
         .filter(Boolean)
         .sort((a, b) => a.localeCompare(b, 'nl'))
     ),
   ];
 
-  console.log(`  → ${places.length} Suriname places`);
-  return places;
+  console.log(`  → ${cleaned.length} Suriname places`);
+  return cleaned;
 }
 
 async function fetchCountries() {
@@ -57,7 +71,7 @@ async function fetchCountries() {
 
   const countries = data
     .map(c => c.name.common)
-    .filter(n => n !== 'Suriname')   // Suriname is handled by its own list
+    .filter(n => n !== 'Suriname')
     .sort((a, b) => a.localeCompare(b));
 
   console.log(`  → ${countries.length} countries`);
