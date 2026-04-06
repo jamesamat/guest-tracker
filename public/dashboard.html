@@ -44,7 +44,8 @@
       background: rgba(230,57,70,0.1); border: 1px solid rgba(230,57,70,0.3);
       color: #e63946; font-size: 13px; text-align: center; display: none;
     }
-    #app-screen { display: none; }
+    #app-screen  { display: none; }
+    #login-screen { display: flex; }
 
     .header {
       background: #1a1a2e;
@@ -145,8 +146,8 @@
 </head>
 <body>
 
-<!-- Login screen -->
-<div id="login-screen">
+<!-- Login screen (visible by default, hidden after successful login) -->
+<div id="login-screen" style="display:flex">
   <div class="login-card">
     <div class="login-logo">Guest Tracker</div>
     <div class="login-sub">Manager Dashboard</div>
@@ -252,7 +253,8 @@
   document.getElementById('login-pw').addEventListener('keydown', e => { if (e.key === 'Enter') doLogin(); });
 
   // On page load — check for existing valid token
-  if (getToken()) { showApp(); load(); } else { showLogin(); }
+  if (getToken()) { showApp(); load(); }
+  // else: login-screen is already visible via inline style — no action needed
 
   async function apiFetch(url) {
     const res = await fetch(url, { headers: { 'x-dash-token': getToken() || '' } });
@@ -390,7 +392,6 @@
       </tr>`).join('');
   }
 
-  load();
 </script>
 </body>
 </html>
