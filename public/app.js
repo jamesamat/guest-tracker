@@ -32,19 +32,28 @@ async function apiFetch(method, path, body) {
 }
 
 function App() {
-  const [counts,    setCounts]    = useState(defaultCounts());
-  const [firstTime, setFirstTime] = useState(0);
-  const [log,       setLog]       = useState([]);
-  const [now,       setNow]       = useState(new Date());
-  const [flashMsg,  setFlashMsg]  = useState(null);
-  const [loading,   setLoading]   = useState(true);
-  const [apiError,  setApiError]  = useState(null);
+  const [counts,        setCounts]        = useState(defaultCounts());
+  const [firstTime,     setFirstTime]     = useState(0);
+  const [residenceMode, setResidenceMode] = useState("suriname"); // "suriname" | "other"
+  const [residence,     setResidence]     = useState("");
+  const [locations,     setLocations]     = useState({ suriname: [], countries: [] });
+  const [log,           setLog]           = useState([]);
+  const [now,           setNow]           = useState(new Date());
+  const [flashMsg,      setFlashMsg]      = useState(null);
+  const [loading,       setLoading]       = useState(true);
+  const [apiError,      setApiError]      = useState(null);
 
   // Load today's log from server on mount
   useEffect(() => {
     apiFetch("GET", `/api/log?date=${localDateStr()}`)
       .then(data => { setLog(data); setLoading(false); })
       .catch(() => { setApiError("Cannot reach server — is it running?"); setLoading(false); });
+
+    // Load location data for datalists (graceful — app works even if file is missing)
+    fetch("/data/locations.json")
+      .then(r => r.json())
+      .then(locs => setLocations({ suriname: locs.suriname || [], countries: locs.countries || [] }))
+      .catch(() => {});
   }, []);
 
   // Clock tick
@@ -68,11 +77,12 @@ function App() {
     if (total === 0) return;
     const hour = now.getHours();
     try {
-      const entry = await apiFetch("POST", "/api/log", { date: localDateStr(), hour, counts, firstTime });
+      const entry = await apiFetch("POST", "/api/log", { date: localDateStr(), hour, counts, firstTime, residence });
       setLog(prev => [...prev, entry]);
       setFlashMsg(`${total} guest${total > 1 ? "s" : ""} logged for ${getHourLabel(hour)}`);
       setCounts(defaultCounts());
       setFirstTime(0);
+      setResidence("");
       setTimeout(() => setFlashMsg(null), 3000);
     } catch {
       setFlashMsg("Save failed — check server connection");
@@ -171,6 +181,38 @@ function App() {
               onClick={() => setFirstTime(n => Math.min(n + 1, total))}
             >+</button>
           </div>
+        </div>
+
+        {/* Residence */}
+        <div className="section-label" style={{ marginTop: 20 }}>Residence</div>
+        <div className="residence-card">
+          <div className="res-toggle">
+            <button
+              className={`res-toggle-btn${residenceMode === "suriname" ? " active" : ""}`}
+              onClick={() => { setResidenceMode("suriname"); setResidence(""); }}
+            >Suriname</button>
+            <button
+              className={`res-toggle-btn${residenceMode === "other" ? " active" : ""}`}
+              onClick={() => { setResidenceMode("other"); setResidence(""); }}
+            >Other Country</button>
+          </div>
+          <input
+            className="residence-input"
+            list={residenceMode === "suriname" ? "loc-sr" : "loc-world"}
+            value={residence}
+            onChange={e => setResidence(e.target.value)}
+            placeholder={residenceMode === "suriname" ? "Type resort or city…" : "Type country…"}
+            autoComplete="off"
+          />
+          <datalist id="loc-sr">
+            {locations.suriname.map(p => <option key={p} value={p} />)}
+          </datalist>
+          <datalist id="loc-world">
+            {locations.countries.map(c => <option key={c} value={c} />)}
+          </datalist>
+          {residence.length > 0 && (
+            <button className="res-clear-btn" onClick={() => setResidence("")}>✕ Clear</button>
+          )}
         </div>
 
         {/* Total */}
