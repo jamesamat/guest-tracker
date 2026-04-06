@@ -34,8 +34,9 @@ async function apiFetch(method, path, body) {
 function App() {
   const [counts,        setCounts]        = useState(defaultCounts());
   const [firstTime,     setFirstTime]     = useState(0);
-  const [residenceMode, setResidenceMode] = useState("suriname"); // "suriname" | "other"
-  const [residence,     setResidence]     = useState("");
+  const [residenceMode,  setResidenceMode]  = useState("suriname"); // "suriname" | "other"
+  const [residence,      setResidence]      = useState("");
+  const [residenceError, setResidenceError] = useState(false);
   const [locations,     setLocations]     = useState({ suriname: [], countries: [] });
   const [log,           setLog]           = useState([]);
   const [now,           setNow]           = useState(new Date());
@@ -83,6 +84,7 @@ function App() {
       setCounts(defaultCounts());
       setFirstTime(0);
       setResidence("");
+      setResidenceError(false);
       setTimeout(() => setFlashMsg(null), 3000);
     } catch {
       setFlashMsg("Save failed — check server connection");
@@ -196,15 +198,31 @@ function App() {
               onClick={() => { setResidenceMode("other"); setResidence(""); }}
             >Other Country</button>
           </div>
-          <select
-            className="residence-input"
+          <input
+            className={`residence-input${residenceError ? " error" : ""}`}
+            list={residenceMode === "suriname" ? "loc-sr" : "loc-world"}
             value={residence}
-            onChange={e => setResidence(e.target.value)}
-          >
-            <option value="">— Select —</option>
-            {(residenceMode === "suriname" ? locations.suriname : locations.countries)
-              .map(item => <option key={item} value={item}>{item}</option>)}
-          </select>
+            onChange={e => { setResidence(e.target.value); setResidenceError(false); }}
+            onBlur={() => {
+              const list = residenceMode === "suriname" ? locations.suriname : locations.countries;
+              if (residence !== "" && !list.includes(residence)) {
+                setResidence("");
+                setResidenceError(true);
+                setTimeout(() => setResidenceError(false), 2500);
+              }
+            }}
+            placeholder={residenceMode === "suriname" ? "Type resort or city…" : "Type country…"}
+            autoComplete="off"
+          />
+          {residenceError && (
+            <div className="res-error">Not in list — please select a valid option</div>
+          )}
+          <datalist id="loc-sr">
+            {locations.suriname.map(p => <option key={p} value={p} />)}
+          </datalist>
+          <datalist id="loc-world">
+            {locations.countries.map(c => <option key={c} value={c} />)}
+          </datalist>
         </div>
 
         {/* Total */}
