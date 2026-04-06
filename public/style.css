@@ -201,3 +201,70 @@ td.hour-cell {
   font-family: 'Fredoka One', sans-serif; font-size: 17px;
 }
 .total-tbl-row .hour-cell { color: #FFD700; }
+
+/* ── Residence ────────────────────────────────────────────────────────────── */
+.residence-card {
+  background: rgba(255,255,255,0.05);
+  border: 1.5px solid rgba(255,255,255,0.08);
+  border-radius: 14px;
+  padding: 16px 18px;
+  margin-bottom: 10px;
+  animation: fadeIn 0.3s ease both;
+}
+
+.res-toggle {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.res-toggle-btn {
+  flex: 1;
+  padding: 10px;
+  border-radius: 10px;
+  border: 1.5px solid rgba(255,255,255,0.12);
+  background: transparent;
+  color: rgba(255,255,255,0.4);
+  font-family: 'Nunito', sans-serif;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+.res-toggle-btn.active {
+  background: rgba(84,160,255,0.15);
+  border-color: #54A0FF;
+  color: #54A0FF;
+}
+
+.residence-input {
+  width: 100%;
+  background: rgba(255,255,255,0.06);
+  border: 1.5px solid rgba(255,255,255,0.12);
+  border-radius: 10px;
+  padding: 12px 14px;
+  font-family: 'Nunito', sans-serif;
+  font-size: 16px;
+  color: #fff;
+  outline: none;
+  transition: border-color 0.15s;
+}
+.residence-input:focus { border-color: #54A0FF; }
+.residence-input::placeholder { color: rgba(255,255,255,0.25); }
+
+.res-clear-btn {
+  display: block;
+  margin-top: 8px;
+  background: transparent;
+  border: none;
+  color: rgba(255,255,255,0.3);
+  font-family: 'Nunito', sans-serif;
+  font-size: 12px;
+  cursor: pointer;
+  padding: 0;
+  -webkit-tap-highlight-color: transparent;
+  transition: color 0.15s;
+}
+.res-clear-btn:hover { color: #e63946; }
