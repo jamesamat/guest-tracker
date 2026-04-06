@@ -91,12 +91,13 @@ async function fetchSurinamePlaces() {
       throw new Error(data.msg || 'empty response');
     }
 
-    const places = data.data
+    // Merge API results with fallback to maximise coverage
+    const merged = [...new Set([...data.data, ...SURINAME_FALLBACK])]
       .filter(Boolean)
       .sort((a, b) => a.localeCompare(b, 'nl'));
 
-    console.log(`  → ${places.length} places (from API)`);
-    return places;
+    console.log(`  → ${merged.length} places (API ${data.data.length} + fallback ${SURINAME_FALLBACK.length}, merged)`);
+    return merged;
 
   } catch (err) {
     console.warn(`  ! API failed (${err.message}) — using built-in list`);
