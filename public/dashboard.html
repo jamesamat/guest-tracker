@@ -10,6 +10,42 @@
     *, *::before, *::after { box-sizing: border-box; }
     html, body { margin: 0; padding: 0; background: #0f0f1a; color: #fff; font-family: 'Nunito', sans-serif; }
 
+    /* ── Login screen ── */
+    #login-screen {
+      min-height: 100vh;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .login-card {
+      background: rgba(255,255,255,0.04);
+      border: 1.5px solid rgba(255,255,255,0.08);
+      border-radius: 20px;
+      padding: 40px 36px;
+      width: 100%; max-width: 360px;
+    }
+    .login-logo  { font-family: 'Fredoka One', cursive; font-size: 28px; color: #e63946; margin-bottom: 4px; }
+    .login-sub   { font-size: 12px; color: rgba(255,255,255,0.35); letter-spacing: 1.5px; text-transform: uppercase; margin-bottom: 32px; }
+    .login-label { font-size: 11px; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase; color: rgba(255,255,255,0.35); margin-bottom: 8px; }
+    .login-input {
+      width: 100%; background: rgba(255,255,255,0.06);
+      border: 1.5px solid rgba(255,255,255,0.12); border-radius: 10px;
+      padding: 13px 14px; font-family: 'Nunito', sans-serif; font-size: 16px;
+      color: #fff; outline: none; transition: border-color 0.15s; margin-bottom: 16px;
+    }
+    .login-input:focus { border-color: #54A0FF; }
+    .login-btn {
+      width: 100%; background: #e63946; border: none; border-radius: 12px;
+      padding: 15px; font-family: 'Fredoka One', cursive; font-size: 20px;
+      color: #fff; cursor: pointer; transition: opacity 0.15s;
+    }
+    .login-btn:hover   { opacity: 0.88; }
+    .login-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+    .login-error {
+      margin-top: 14px; padding: 10px 14px; border-radius: 8px;
+      background: rgba(230,57,70,0.1); border: 1px solid rgba(230,57,70,0.3);
+      color: #e63946; font-size: 13px; text-align: center; display: none;
+    }
+    #app-screen { display: none; }
+
     .header {
       background: #1a1a2e;
       border-bottom: 2px solid rgba(255,255,255,0.08);
@@ -109,6 +145,20 @@
 </head>
 <body>
 
+<!-- Login screen -->
+<div id="login-screen">
+  <div class="login-card">
+    <div class="login-logo">Guest Tracker</div>
+    <div class="login-sub">Manager Dashboard</div>
+    <div class="login-label">Password</div>
+    <input id="login-pw" class="login-input" type="password" placeholder="Enter password…" autocomplete="current-password" />
+    <button class="login-btn" id="login-btn" onclick="doLogin()">Sign In</button>
+    <div class="login-error" id="login-error">Incorrect password — try again</div>
+  </div>
+</div>
+
+<!-- Dashboard (shown after login) -->
+<div id="app-screen">
 <div class="header">
   <div>
     <div class="header-title">Guest Tracker</div>
@@ -116,6 +166,7 @@
   </div>
   <div class="header-right">
     <button class="refresh-btn" onclick="load()">Refresh</button>
+    <button class="refresh-btn" onclick="logout()" style="border-color:rgba(230,57,70,0.3);color:rgba(230,57,70,0.6)">Sign Out</button>
     <div class="badge">Manager</div>
   </div>
 </div>
@@ -159,8 +210,57 @@
   </div>
 
 </div>
+</div><!-- /#app-screen -->
 
 <script>
+  // ── Auth ──────────────────────────────────────────────────────────────────
+  const TOKEN_KEY = 'dash_token';
+
+  function getToken() { return sessionStorage.getItem(TOKEN_KEY); }
+
+  function showApp()   { document.getElementById('login-screen').style.display = 'none'; document.getElementById('app-screen').style.display = ''; }
+  function showLogin() { document.getElementById('login-screen').style.display = ''; document.getElementById('app-screen').style.display = 'none'; }
+
+  async function doLogin() {
+    const pw  = document.getElementById('login-pw').value;
+    const btn = document.getElementById('login-btn');
+    const err = document.getElementById('login-error');
+    if (!pw) return;
+    btn.disabled = true;
+    err.style.display = 'none';
+    try {
+      const res  = await fetch('/api/dashboard-login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password: pw }),
+      });
+      if (!res.ok) { err.style.display = ''; btn.disabled = false; return; }
+      const { token } = await res.json();
+      sessionStorage.setItem(TOKEN_KEY, token);
+      document.getElementById('login-pw').value = '';
+      showApp();
+      load();
+    } catch { err.style.display = ''; btn.disabled = false; }
+  }
+
+  function logout() {
+    sessionStorage.removeItem(TOKEN_KEY);
+    showLogin();
+  }
+
+  // Allow Enter key on password field
+  document.getElementById('login-pw').addEventListener('keydown', e => { if (e.key === 'Enter') doLogin(); });
+
+  // On page load — check for existing valid token
+  if (getToken()) { showApp(); load(); } else { showLogin(); }
+
+  async function apiFetch(url) {
+    const res = await fetch(url, { headers: { 'x-dash-token': getToken() || '' } });
+    if (res.status === 401) { logout(); throw new Error('Unauthorized'); }
+    return res.json();
+  }
+
+  // ── Dashboard data ─────────────────────────────────────────────────────────
   const today = new Date().toLocaleDateString('en-CA'); // YYYY-MM-DD
 
   const AGE_KEYS   = ['toddler','preschool','school_age','teen','adult'];
@@ -173,7 +273,7 @@
 
   async function load() {
     try {
-      const d = await fetch('/api/dashboard').then(r => r.json());
+      const d = await apiFetch('/api/dashboard');
       renderKPIs(d);
       renderAge(d.totals, d.today);
       renderPeakHours(d.byHour);
