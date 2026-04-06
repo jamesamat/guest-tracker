@@ -1,6 +1,16 @@
 const express  = require('express');
 const Database = require('better-sqlite3');
 const path     = require('path');
+const fs       = require('fs');
+
+// Load .env if present (no dotenv dependency — plain key=value parser)
+const envPath = path.join(__dirname, '.env');
+if (fs.existsSync(envPath)) {
+  fs.readFileSync(envPath, 'utf8').split('\n').forEach(line => {
+    const m = line.match(/^([A-Z_][A-Z0-9_]*)=(.*)$/);
+    if (m && !(m[1] in process.env)) process.env[m[1]] = m[2].trim();
+  });
+}
 
 const app      = express();
 const adminApp = express();
@@ -46,12 +56,24 @@ try {
 app.use(express.json());
 adminApp.use(express.json());
 
-// Block admin.html on the staff-facing app
-app.get('/admin.html', (_req, res) => res.status(404).end());
+// Block admin.html and dashboard.html on the staff-facing app
+app.get('/admin.html',     (_req, res) => res.status(404).end());
+app.get('/dashboard.html', (_req, res) => res.status(404).end());
 
 // Serve public/ on both apps (admin.html is accessible on adminApp only)
 app.use(express.static(path.join(__dirname, 'public')));
 adminApp.use(express.static(path.join(__dirname, 'public')));
+
+// ─── Export API key middleware ─────────────────────────────────────────────────
+// Set EXPORT_API_KEY in environment to require a key on export routes.
+// If not set the routes remain open (backward compat with existing PowerBI connectors).
+function requireExportKey(req, res, next) {
+  const secret = process.env.EXPORT_API_KEY;
+  if (!secret) return next();
+  const provided = req.query.key || req.headers['x-api-key'];
+  if (provided !== secret) return res.status(401).json({ error: 'Invalid or missing API key' });
+  next();
+}
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 function todayStr() {
@@ -125,7 +147,7 @@ app.post('/api/log', (req, res) => {
 // ─── PowerBI Export Routes (staff port) ───────────────────────────────────────
 
 // GET /api/export/json  — full history as JSON (PowerBI Web connector)
-app.get('/api/export/json', (_req, res) => {
+app.get('/api/export/json', requireExportKey, (_req, res) => {
   const rows = db
     .prepare('SELECT * FROM visits ORDER BY visit_date, hour, id')
     .all();
@@ -133,7 +155,7 @@ app.get('/api/export/json', (_req, res) => {
 });
 
 // GET /api/export/csv  — full history as CSV (downloadable or PowerBI Web)
-app.get('/api/export/csv', (_req, res) => {
+app.get('/api/export/csv', requireExportKey, (_req, res) => {
   const rows    = db.prepare('SELECT * FROM visits ORDER BY visit_date, hour, id').all();
   const headers = ['id', 'visit_date', 'hour', 'toddler', 'preschool', 'school_age', 'teen', 'adult', 'total', 'first_time', 'residence', 'district', 'resort', 'logged_at'];
   const lines   = [
@@ -146,6 +168,57 @@ app.get('/api/export/csv', (_req, res) => {
 });
 
 // ─── Admin API Routes (port 3001 / 41081 only) ────────────────────────────────
+
+// GET /api/dashboard  — summary stats for manager dashboard
+adminApp.get('/api/dashboard', (_req, res) => {
+  const totals = db.prepare(`
+    SELECT
+      SUM(total)      AS total_guests,
+      SUM(first_time) AS total_first_time,
+      SUM(toddler)    AS total_toddler,
+      SUM(preschool)  AS total_preschool,
+      SUM(school_age) AS total_school_age,
+      SUM(teen)       AS total_teen,
+      SUM(adult)      AS total_adult,
+      COUNT(DISTINCT visit_date) AS total_days
+    FROM visits
+  `).get();
+
+  const today = db.prepare(`
+    SELECT
+      SUM(total)      AS guests,
+      SUM(first_time) AS first_time,
+      SUM(toddler)    AS toddler,
+      SUM(preschool)  AS preschool,
+      SUM(school_age) AS school_age,
+      SUM(teen)       AS teen,
+      SUM(adult)      AS adult
+    FROM visits WHERE visit_date = ?
+  `).get(todayStr());
+
+  const byDay = db.prepare(`
+    SELECT visit_date, SUM(total) AS guests, SUM(first_time) AS first_time
+    FROM visits GROUP BY visit_date ORDER BY visit_date
+  `).all();
+
+  const byHour = db.prepare(`
+    SELECT hour, SUM(total) AS guests
+    FROM visits GROUP BY hour ORDER BY hour
+  `).all();
+
+  const byResidence = db.prepare(`
+    SELECT
+      CASE WHEN residence = '' OR residence IS NULL THEN 'Unknown' ELSE residence END AS residence,
+      district, resort,
+      SUM(total) AS guests
+    FROM visits
+    GROUP BY residence, district, resort
+    ORDER BY guests DESC
+    LIMIT 20
+  `).all();
+
+  res.json({ totals, today, byDay, byHour, byResidence });
+});
 
 // GET /api/dates  — all dates with totals
 adminApp.get('/api/dates', (_req, res) => {
