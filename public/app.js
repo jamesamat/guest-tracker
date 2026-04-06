@@ -196,23 +196,15 @@ function App() {
               onClick={() => { setResidenceMode("other"); setResidence(""); }}
             >Other Country</button>
           </div>
-          <input
+          <select
             className="residence-input"
-            list={residenceMode === "suriname" ? "loc-sr" : "loc-world"}
             value={residence}
             onChange={e => setResidence(e.target.value)}
-            placeholder={residenceMode === "suriname" ? "Type resort or city…" : "Type country…"}
-            autoComplete="off"
-          />
-          <datalist id="loc-sr">
-            {locations.suriname.map(p => <option key={p} value={p} />)}
-          </datalist>
-          <datalist id="loc-world">
-            {locations.countries.map(c => <option key={c} value={c} />)}
-          </datalist>
-          {residence.length > 0 && (
-            <button className="res-clear-btn" onClick={() => setResidence("")}>✕ Clear</button>
-          )}
+          >
+            <option value="">— Select —</option>
+            {(residenceMode === "suriname" ? locations.suriname : locations.countries)
+              .map(item => <option key={item} value={item}>{item}</option>)}
+          </select>
         </div>
 
         {/* Total */}
