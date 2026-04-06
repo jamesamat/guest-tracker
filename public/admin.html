@@ -263,6 +263,9 @@
       const ageCols = AGE_COLS.map(c =>
         `<td class="entry-num" style="color:${e[c] > 0 ? AGE_COLORS[c] : 'rgba(255,255,255,0.18)'}">${e[c] || '—'}</td>`
       ).join('');
+      const residence = e.district
+        ? `${e.district}${e.resort ? ' · ' + e.resort : ''}`
+        : (e.residence || '—');
       return `
         <tr>
           <td class="entry-id">#${e.id}</td>
@@ -270,6 +273,7 @@
           ${ageCols}
           <td class="entry-num" style="color:#FFD700">${e.first_time || '—'}</td>
           <td class="entry-num" style="color:#FFD700">${e.total}</td>
+          <td style="color:rgba(255,255,255,0.45);font-size:12px;white-space:nowrap">${residence}</td>
           <td>
             <button class="del-btn sm" onclick="deleteEntry(${e.id},'${date}')">Delete</button>
           </td>
@@ -284,6 +288,7 @@
             ${colHeaders}
             <th style="color:#FFD700">★ 1st</th>
             <th style="color:#FFD700">Total</th>
+            <th>Residence</th>
             <th></th>
           </tr>
         </thead>
