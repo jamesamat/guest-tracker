@@ -37,6 +37,9 @@ function App() {
   const [residenceMode,  setResidenceMode]  = useState("suriname"); // "suriname" | "other"
   const [residence,      setResidence]      = useState("");
   const [residenceError, setResidenceError] = useState(false);
+  const [district,       setDistrict]       = useState("");
+  const [resort,         setResort]         = useState("");
+  const [resortError,    setResortError]    = useState(false);
   const [locations,     setLocations]     = useState({ suriname: [], countries: [] });
   const [log,           setLog]           = useState([]);
   const [now,           setNow]           = useState(new Date());
@@ -78,13 +81,16 @@ function App() {
     if (total === 0) return;
     const hour = now.getHours();
     try {
-      const entry = await apiFetch("POST", "/api/log", { date: localDateStr(), hour, counts, firstTime, residence });
+      const entry = await apiFetch("POST", "/api/log", { date: localDateStr(), hour, counts, firstTime, residence, district, resort });
       setLog(prev => [...prev, entry]);
       setFlashMsg(`${total} guest${total > 1 ? "s" : ""} logged for ${getHourLabel(hour)}`);
       setCounts(defaultCounts());
       setFirstTime(0);
       setResidence("");
       setResidenceError(false);
+      setDistrict("");
+      setResort("");
+      setResortError(false);
       setTimeout(() => setFlashMsg(null), 3000);
     } catch {
       setFlashMsg("Save failed — check server connection");
@@ -188,41 +194,91 @@ function App() {
         {/* Residence */}
         <div className="section-label" style={{ marginTop: 20 }}>Residence</div>
         <div className="residence-card">
+
+          {/* Suriname / Other toggle */}
           <div className="res-toggle">
             <button
               className={`res-toggle-btn${residenceMode === "suriname" ? " active" : ""}`}
-              onClick={() => { setResidenceMode("suriname"); setResidence(""); }}
+              onClick={() => { setResidenceMode("suriname"); setResidence(""); setDistrict(""); setResort(""); }}
             >Suriname</button>
             <button
               className={`res-toggle-btn${residenceMode === "other" ? " active" : ""}`}
-              onClick={() => { setResidenceMode("other"); setResidence(""); }}
+              onClick={() => { setResidenceMode("other"); setResidence(""); setDistrict(""); setResort(""); }}
             >Other Country</button>
           </div>
-          <input
-            className={`residence-input${residenceError ? " error" : ""}`}
-            list={residenceMode === "suriname" ? "loc-sr" : "loc-world"}
-            value={residence}
-            onChange={e => { setResidence(e.target.value); setResidenceError(false); }}
-            onBlur={() => {
-              const list = residenceMode === "suriname" ? locations.suriname : locations.countries;
-              if (residence !== "" && !list.includes(residence)) {
-                setResidence("");
-                setResidenceError(true);
-                setTimeout(() => setResidenceError(false), 2500);
-              }
-            }}
-            placeholder={residenceMode === "suriname" ? "Type resort or city…" : "Type country…"}
-            autoComplete="off"
-          />
-          {residenceError && (
-            <div className="res-error">Not in list — please select a valid option</div>
+
+          {residenceMode === "suriname" ? (
+            <>
+              {/* District — required */}
+              <div className="res-field-label">District</div>
+              <select
+                className="residence-input"
+                value={district}
+                onChange={e => { setDistrict(e.target.value); setResort(""); setResortError(false); }}
+              >
+                <option value="">— Select district —</option>
+                {Object.keys(locations.suriname.districts || {}).sort().map(d => (
+                  <option key={d} value={d}>{d}</option>
+                ))}
+              </select>
+
+              {/* Resort — optional, only shown once district is picked */}
+              {district && (
+                <>
+                  <div className="res-field-label" style={{ marginTop: 12 }}>
+                    Resort <span className="res-optional">optional</span>
+                  </div>
+                  <input
+                    className={`residence-input${resortError ? " error" : ""}`}
+                    list="loc-resorts"
+                    value={resort}
+                    onChange={e => { setResort(e.target.value); setResortError(false); }}
+                    onBlur={() => {
+                      const resorts = (locations.suriname.districts || {})[district] || [];
+                      if (resort !== "" && !resorts.includes(resort)) {
+                        setResort("");
+                        setResortError(true);
+                        setTimeout(() => setResortError(false), 2500);
+                      }
+                    }}
+                    placeholder="Type resort or city…"
+                    autoComplete="off"
+                  />
+                  {resortError && <div className="res-error">Not in list — please select a valid resort</div>}
+                  <datalist id="loc-resorts">
+                    {((locations.suriname.districts || {})[district] || []).map(r => (
+                      <option key={r} value={r} />
+                    ))}
+                  </datalist>
+                </>
+              )}
+            </>
+          ) : (
+            <>
+              {/* Other country */}
+              <div className="res-field-label">Country</div>
+              <input
+                className={`residence-input${residenceError ? " error" : ""}`}
+                list="loc-world"
+                value={residence}
+                onChange={e => { setResidence(e.target.value); setResidenceError(false); }}
+                onBlur={() => {
+                  if (residence !== "" && !locations.countries.includes(residence)) {
+                    setResidence("");
+                    setResidenceError(true);
+                    setTimeout(() => setResidenceError(false), 2500);
+                  }
+                }}
+                placeholder="Type country…"
+                autoComplete="off"
+              />
+              {residenceError && <div className="res-error">Not in list — please select a valid country</div>}
+              <datalist id="loc-world">
+                {locations.countries.map(c => <option key={c} value={c} />)}
+              </datalist>
+            </>
           )}
-          <datalist id="loc-sr">
-            {locations.suriname.map(p => <option key={p} value={p} />)}
-          </datalist>
-          <datalist id="loc-world">
-            {locations.countries.map(c => <option key={c} value={c} />)}
-          </datalist>
+
         </div>
 
         {/* Total */}

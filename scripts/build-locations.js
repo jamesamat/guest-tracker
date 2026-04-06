@@ -2,10 +2,10 @@
 /**
  * Build public/data/locations.json
  *
- * Suriname places: tries countriesnow.space, falls back to built-in list
- * Countries:       restcountries.com (free, no key)
+ * Suriname: hardcoded district→resort mapping (stable admin data)
+ * Countries: restcountries.com (free, no key) — refreshed on each run
  *
- * Run once (or whenever you want fresh data):
+ * Run once (or whenever you want a fresh country list):
  *   node scripts/build-locations.js
  */
 
@@ -14,27 +14,19 @@ const http  = require('http');
 const fs    = require('fs');
 const path  = require('path');
 
-// ── Hardcoded fallback — covers all districts/resorts ────────────────────────
-const SURINAME_FALLBACK = [
-  'Afobaka', 'Albina', 'Alkmaar', 'Amy', 'Apoera',
-  'Bigiston', 'Brokopondo', 'Brownsweg',
-  'Carolina', 'Coeroeni', 'Coronie', 'Cottica',
-  'Domburg',
-  'Flora', 'Friendship',
-  'Groningen', 'Groot Henar',
-  'Kabalebo', 'Kwatta', 'Kwakoegron',
-  'Langatabbetje', 'Lelydorp',
-  'Marienburg', 'Marshallkreek', 'Meerzorg', 'Moengo',
-  'Nieuw Amsterdam', 'Nieuw Nickerie',
-  'Onverwacht',
-  'Para', 'Paramaribo', 'Patamacca',
-  'Rainville', 'Republiek',
-  'Sara Kreek', 'Saramacca',
-  'Tamanredjo', 'Tapanahony', 'Tijgerkreek', 'Totness', 'Tout Lui Faut',
-  'Uitkijk',
-  'Wageningen', 'Wanica', 'Wanhatti', 'Wayambo',
-  'Zanderij',
-].sort((a, b) => a.localeCompare(b, 'nl'));
+// ── Suriname districts and their resorts ─────────────────────────────────────
+const SURINAME_DISTRICTS = {
+  Brokopondo: ['Afobaka', 'Bigiston', 'Brokopondo', 'Brownsweg', 'Kwakoegron'],
+  Commewijne: ['Alkmaar', 'Amy', 'Friendship', 'Mariënburg', 'Meerzorg', 'Nieuw Amsterdam', 'Tamanredjo'],
+  Coronie:    ['Coronie', 'Totness'],
+  Marowijne:  ['Albina', 'Cottica', 'Moengo', 'Patamacca'],
+  Nickerie:   ['Kabalebo', 'Nieuw Nickerie', 'Wageningen'],
+  Para:       ['Carolina', 'Flora', 'Onverwacht', 'Para', 'Republiek', 'Sara Kreek', 'Zanderij'],
+  Paramaribo: ['Paramaribo'],
+  Saramacca:  ['Groningen', 'Groot Henar', 'Saramacca', 'Uitkijk', 'Wayambo'],
+  Sipaliwini: ['Apoera', 'Botopasi', 'Coeroeni', 'Langatabbetje', 'Marshallkreek', 'Tapanahony', 'Tijgerkreek', 'Tout Lui Faut', 'Wanhatti'],
+  Wanica:     ['Domburg', 'Kwatta', 'Lelydorp', 'Rainville', 'Wanica'],
+};
 
 // ── HTTP/S helper with redirect following ────────────────────────────────────
 function request(method, url, body, hops = 0) {
@@ -58,7 +50,6 @@ function request(method, url, body, hops = 0) {
     };
 
     const req = lib.request(opts, res => {
-      // Follow redirects
       if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
         const next = res.headers.location.startsWith('http')
           ? res.headers.location
@@ -81,31 +72,6 @@ function request(method, url, body, hops = 0) {
   });
 }
 
-// ── Suriname places ──────────────────────────────────────────────────────────
-async function fetchSurinamePlaces() {
-  try {
-    console.log('Fetching Suriname cities from countriesnow.space…');
-    const data = await request('POST', 'https://countriesnow.space/api/v0.1/countries/cities', { country: 'Suriname' });
-
-    if (data.error || !Array.isArray(data.data) || data.data.length === 0) {
-      throw new Error(data.msg || 'empty response');
-    }
-
-    // Merge API results with fallback to maximise coverage
-    const merged = [...new Set([...data.data, ...SURINAME_FALLBACK])]
-      .filter(Boolean)
-      .sort((a, b) => a.localeCompare(b, 'nl'));
-
-    console.log(`  → ${merged.length} places (API ${data.data.length} + fallback ${SURINAME_FALLBACK.length}, merged)`);
-    return merged;
-
-  } catch (err) {
-    console.warn(`  ! API failed (${err.message}) — using built-in list`);
-    console.log(`  → ${SURINAME_FALLBACK.length} places (built-in fallback)`);
-    return SURINAME_FALLBACK;
-  }
-}
-
 // ── Countries ────────────────────────────────────────────────────────────────
 async function fetchCountries() {
   console.log('Fetching country list from restcountries.com…');
@@ -122,19 +88,24 @@ async function fetchCountries() {
 
 // ── Main ─────────────────────────────────────────────────────────────────────
 async function main() {
-  const [suriname, countries] = await Promise.all([
-    fetchSurinamePlaces(),
-    fetchCountries(),
-  ]);
+  const countries = await fetchCountries();
+
+  const totalResorts = Object.values(SURINAME_DISTRICTS)
+    .reduce((s, r) => s + r.length, 0);
+
+  console.log(`  Suriname: ${Object.keys(SURINAME_DISTRICTS).length} districts, ${totalResorts} resorts`);
 
   const outDir  = path.join(__dirname, '..', 'public', 'data');
   const outFile = path.join(outDir, 'locations.json');
 
   fs.mkdirSync(outDir, { recursive: true });
-  fs.writeFileSync(outFile, JSON.stringify({ suriname, countries }, null, 2), 'utf8');
+  fs.writeFileSync(outFile, JSON.stringify(
+    { suriname: { districts: SURINAME_DISTRICTS }, countries },
+    null, 2
+  ), 'utf8');
 
   console.log(`\nSaved → ${outFile}`);
-  console.log(`  Suriname : ${suriname.length} places`);
+  console.log(`  Districts: ${Object.keys(SURINAME_DISTRICTS).length}`);
   console.log(`  Countries: ${countries.length}`);
 }
 

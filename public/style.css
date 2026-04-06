@@ -255,6 +255,31 @@ td.hour-cell {
 .residence-input.error  { border-color: #e63946; }
 .residence-input::placeholder { color: rgba(255,255,255,0.25); }
 
+/* select variant */
+.residence-input option { background: #1a1a2e; color: #fff; }
+
+.res-field-label {
+  font-family: 'Nunito', sans-serif;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: rgba(255,255,255,0.35);
+  margin-bottom: 6px;
+}
+
+.res-optional {
+  font-size: 10px;
+  letter-spacing: 1px;
+  color: rgba(255,255,255,0.2);
+  text-transform: uppercase;
+  margin-left: 6px;
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 4px;
+  padding: 1px 5px;
+  vertical-align: middle;
+}
+
 .res-error {
   margin-top: 6px;
   font-family: 'Nunito', sans-serif;
