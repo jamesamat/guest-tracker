@@ -3,8 +3,8 @@
  * Build public/data/locations.json
  *
  * Sources:
- *   - Suriname populated places  → Wikipedia "Populated places in Suriname" category (free, no key)
- *   - Country list               → restcountries.com (free, no key)
+ *   - Suriname cities  → countriesnow.space (free, no key)
+ *   - Country list     → restcountries.com  (free, no key)
  *
  * Run once (or whenever you want fresh data):
  *   node scripts/build-locations.js
@@ -16,53 +16,60 @@ const path  = require('path');
 
 function get(url) {
   return new Promise((resolve, reject) => {
-    const req = https.get(url, { headers: { 'User-Agent': 'GuestTracker/1.0 (guest-tracker)' } }, res => {
+    const req = https.get(url, { headers: { 'User-Agent': 'GuestTracker/1.0' } }, res => {
       const chunks = [];
       res.on('data', c => chunks.push(c));
       res.on('end', () => {
         try { resolve(JSON.parse(Buffer.concat(chunks).toString())); }
-        catch (e) { reject(new Error(`JSON parse failed for ${url}: ${e.message}`)); }
+        catch (e) { reject(new Error(`JSON parse failed: ${e.message}`)); }
       });
     });
     req.on('error', reject);
-    req.setTimeout(60000, () => { req.destroy(); reject(new Error(`Timeout: ${url}`)); });
+    req.setTimeout(60000, () => { req.destroy(); reject(new Error('Timeout')); });
+  });
+}
+
+function post(url, body) {
+  return new Promise((resolve, reject) => {
+    const payload  = JSON.stringify(body);
+    const urlObj   = new URL(url);
+    const opts = {
+      hostname: urlObj.hostname,
+      path:     urlObj.pathname,
+      method:   'POST',
+      headers:  {
+        'Content-Type':   'application/json',
+        'Content-Length': Buffer.byteLength(payload),
+        'User-Agent':     'GuestTracker/1.0',
+      },
+    };
+    const req = https.request(opts, res => {
+      const chunks = [];
+      res.on('data', c => chunks.push(c));
+      res.on('end', () => {
+        try { resolve(JSON.parse(Buffer.concat(chunks).toString())); }
+        catch (e) { reject(new Error(`JSON parse failed: ${e.message}`)); }
+      });
+    });
+    req.on('error', reject);
+    req.setTimeout(60000, () => { req.destroy(); reject(new Error('Timeout')); });
+    req.write(payload);
+    req.end();
   });
 }
 
 async function fetchSurinamePlaces() {
-  // Wikipedia category API — pages in "Populated places in Suriname"
-  // Paginates with cmcontinue until all results are fetched
-  const base = 'https://en.wikipedia.org/w/api.php?action=query&list=categorymembers'
-    + '&cmtitle=Category:Populated_places_in_Suriname'
-    + '&format=json&cmlimit=500&cmtype=page';
+  console.log('Fetching Suriname cities from countriesnow.space…');
+  const data = await post('https://countriesnow.space/api/v0.1/countries/cities', { country: 'Suriname' });
 
-  console.log('Fetching Suriname places from Wikipedia…');
+  if (data.error) throw new Error(`countriesnow error: ${data.msg}`);
 
-  let places = [];
-  let continueParam = '';
+  const places = (data.data || [])
+    .filter(Boolean)
+    .sort((a, b) => a.localeCompare(b, 'nl'));
 
-  do {
-    const url  = continueParam ? `${base}&cmcontinue=${continueParam}` : base;
-    const data = await get(url);
-
-    const titles = (data.query?.categorymembers || []).map(m => m.title);
-    places.push(...titles);
-
-    continueParam = data.continue?.cmcontinue || '';
-  } while (continueParam);
-
-  // Strip disambiguation suffixes like "Paramaribo (city)"
-  const cleaned = [
-    ...new Set(
-      places
-        .map(t => t.replace(/\s*\(.*?\)\s*$/, '').trim())
-        .filter(Boolean)
-        .sort((a, b) => a.localeCompare(b, 'nl'))
-    ),
-  ];
-
-  console.log(`  → ${cleaned.length} Suriname places`);
-  return cleaned;
+  console.log(`  → ${places.length} Suriname places`);
+  return places;
 }
 
 async function fetchCountries() {
