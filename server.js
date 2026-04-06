@@ -2,6 +2,7 @@ const express  = require('express');
 const Database = require('better-sqlite3');
 const path     = require('path');
 const fs       = require('fs');
+const crypto   = require('crypto');
 
 // Load .env if present (no dotenv dependency — plain key=value parser)
 const envPath = path.join(__dirname, '.env');
@@ -56,13 +57,55 @@ try {
 app.use(express.json());
 adminApp.use(express.json());
 
-// Block admin.html and dashboard.html on the staff-facing app
-app.get('/admin.html',     (_req, res) => res.status(404).end());
-app.get('/dashboard.html', (_req, res) => res.status(404).end());
+// Block admin.html on the staff-facing app (dashboard.html is allowed — it has its own login)
+app.get('/admin.html', (_req, res) => res.status(404).end());
+
+// Protect /api/dashboard on the public staff port with token auth
+app.get('/api/dashboard', requireDashAuth, (_req, res) => {
+  // proxy to the same handler defined below on adminApp — reuse query logic inline
+  _req.app._dashboardHandler(_req, res);
+});
 
 // Serve public/ on both apps (admin.html is accessible on adminApp only)
 app.use(express.static(path.join(__dirname, 'public')));
 adminApp.use(express.static(path.join(__dirname, 'public')));
+
+// ─── Dashboard auth ────────────────────────────────────────────────────────────
+// DASHBOARD_PASSWORD must be set in .env / docker env.
+// Login: POST /api/dashboard-login { password } → { token }
+// Token is HMAC-SHA256(password, secret) — stateless, no DB required.
+// Valid for 12 hours (encoded in the token payload).
+
+function makeDashToken(password) {
+  const secret  = process.env.DASHBOARD_PASSWORD || '';
+  const expires = Date.now() + 12 * 60 * 60 * 1000;
+  const payload = `${expires}`;
+  const sig     = crypto.createHmac('sha256', secret + password).update(payload).digest('hex');
+  return `${payload}.${sig}`;
+}
+
+function verifyDashToken(token) {
+  if (!token) return false;
+  const secret   = process.env.DASHBOARD_PASSWORD || '';
+  const parts    = token.split('.');
+  if (parts.length !== 2) return false;
+  const [payload, sig] = parts;
+  const expires  = parseInt(payload, 10);
+  if (isNaN(expires) || Date.now() > expires) return false;
+  // Recompute sig — try all valid passwords (just one here)
+  const expected = crypto.createHmac('sha256', secret + secret).update(payload).digest('hex');
+  // constant-time compare
+  try {
+    return crypto.timingSafeEqual(Buffer.from(sig, 'hex'), Buffer.from(expected, 'hex'));
+  } catch { return false; }
+}
+
+function requireDashAuth(req, res, next) {
+  if (!process.env.DASHBOARD_PASSWORD) return next(); // not configured — open
+  const token = req.headers['x-dash-token'] || req.query.dash_token;
+  if (!verifyDashToken(token)) return res.status(401).json({ error: 'Unauthorized' });
+  next();
+}
 
 // ─── Export API key middleware ─────────────────────────────────────────────────
 // Set EXPORT_API_KEY in environment to require a key on export routes.
@@ -102,6 +145,21 @@ function rowToEntry(row) {
     },
   };
 }
+
+// ─── Dashboard login (public — both ports) ────────────────────────────────────
+function addLoginRoute(appInstance) {
+  appInstance.post('/api/dashboard-login', (req, res) => {
+    const { password } = req.body;
+    const secret = process.env.DASHBOARD_PASSWORD;
+    if (!secret) return res.status(503).json({ error: 'Dashboard auth not configured' });
+    if (!password || password !== secret) {
+      return res.status(401).json({ error: 'Incorrect password' });
+    }
+    res.json({ token: makeDashToken(password) });
+  });
+}
+addLoginRoute(app);
+addLoginRoute(adminApp);
 
 // ─── Staff API Routes (port 3000 / 41080) ─────────────────────────────────────
 
@@ -170,7 +228,7 @@ app.get('/api/export/csv', requireExportKey, (_req, res) => {
 // ─── Admin API Routes (port 3001 / 41081 only) ────────────────────────────────
 
 // GET /api/dashboard  — summary stats for manager dashboard
-adminApp.get('/api/dashboard', (_req, res) => {
+function dashboardHandler(_req, res) {
   const totals = db.prepare(`
     SELECT
       SUM(total)      AS total_guests,
@@ -218,7 +276,13 @@ adminApp.get('/api/dashboard', (_req, res) => {
   `).all();
 
   res.json({ totals, today, byDay, byHour, byResidence });
-});
+}
+
+// Register dashboard handler on admin port (no auth needed — admin port is internal only)
+adminApp.get('/api/dashboard', dashboardHandler);
+
+// Register on public staff port behind token auth
+app._dashboardHandler = dashboardHandler;
 
 // GET /api/dates  — all dates with totals
 adminApp.get('/api/dates', (_req, res) => {
