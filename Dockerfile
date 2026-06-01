@@ -4,7 +4,7 @@ ENV DEBIAN_FRONTEND=noninteractive
 
 # Install Node.js 20 + nginx in one layer
 RUN apt-get update && \
-    apt-get install -y curl nginx openssl && \
+    apt-get install -y curl nginx && \
     curl -fsSL https://deb.nodesource.com/setup_20.x | bash - && \
     apt-get install -y nodejs && \
     rm -rf /var/lib/apt/lists/*
