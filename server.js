@@ -295,8 +295,8 @@ adminApp.get('/api/dashboard', dashboardHandler);
 // Register on public staff port behind token auth
 app._dashboardHandler = dashboardHandler;
 
-// GET /api/dates  — all dates with totals
-adminApp.get('/api/dates', (_req, res) => {
+// GET /api/admin/dates  — all dates with totals
+adminApp.get('/api/admin/dates', (_req, res) => {
   const rows = db.prepare(`
     SELECT visit_date,
            COUNT(*)        AS entries,
@@ -309,28 +309,40 @@ adminApp.get('/api/dates', (_req, res) => {
   res.json(rows);
 });
 
-// DELETE /api/log?date=YYYY-MM-DD  — delete all entries for a date
-adminApp.delete('/api/log', (req, res) => {
+// DELETE /api/admin/log?date=YYYY-MM-DD  — delete all entries for a date
+adminApp.delete('/api/admin/log', (req, res) => {
   const date = req.query.date;
   if (!date) return res.status(400).json({ error: 'date query parameter required' });
   const info = db.prepare('DELETE FROM visits WHERE visit_date = ?').run(date);
   res.json({ deleted: info.changes });
 });
 
-// GET /api/entries?date=YYYY-MM-DD  — individual entries for a date
-adminApp.get('/api/entries', (req, res) => {
+// GET /api/admin/entries?date=YYYY-MM-DD  — individual entries for a date
+adminApp.get('/api/admin/entries', (req, res) => {
   const date = req.query.date;
   if (!date) return res.status(400).json({ error: 'date required' });
   const rows = db.prepare('SELECT * FROM visits WHERE visit_date = ? ORDER BY hour, id').all(date);
   res.json(rows);
 });
 
-// DELETE /api/entry/:id  — delete a single entry by row ID
-adminApp.delete('/api/entry/:id', (req, res) => {
+// DELETE /api/admin/entry/:id  — delete a single entry by row ID
+adminApp.delete('/api/admin/entry/:id', (req, res) => {
   const id   = parseInt(req.params.id, 10);
   if (!id)   return res.status(400).json({ error: 'invalid id' });
   const info = db.prepare('DELETE FROM visits WHERE id = ?').run(id);
   res.json({ deleted: info.changes });
+});
+
+// PATCH /api/admin/entry/:id  — update location fields (district, resort, residence)
+adminApp.patch('/api/admin/entry/:id', (req, res) => {
+  const id = parseInt(req.params.id, 10);
+  if (!id) return res.status(400).json({ error: 'invalid id' });
+  const { district, resort, residence } = req.body;
+  const info = db.prepare(
+    'UPDATE visits SET district = ?, resort = ?, residence = ? WHERE id = ?'
+  ).run(district || '', resort || '', residence || '', id);
+  if (!info.changes) return res.status(404).json({ error: 'not found' });
+  res.json({ updated: id });
 });
 
 // ─── Start ────────────────────────────────────────────────────────────────────

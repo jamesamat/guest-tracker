@@ -94,6 +94,33 @@
     .del-btn:disabled { opacity: 0.3; cursor: not-allowed; }
     .del-btn.sm { padding: 4px 10px; font-size: 12px; border-radius: 5px; }
 
+    .edit-btn {
+      background: transparent;
+      border: 1px solid rgba(84,160,255,0.35); color: rgba(84,160,255,0.6);
+      border-radius: 7px; padding: 6px 14px;
+      font-family: 'Nunito', sans-serif; font-size: 13px; font-weight: 700;
+      cursor: pointer; transition: border-color 0.15s, color 0.15s, background 0.15s;
+      white-space: nowrap;
+    }
+    .edit-btn:hover { border-color: #54A0FF; color: #54A0FF; background: rgba(84,160,255,0.08); }
+    .edit-btn.sm { padding: 4px 10px; font-size: 12px; border-radius: 5px; }
+    .mode-btn {
+      background: transparent;
+      border: 1px solid rgba(255,255,255,0.15); color: rgba(255,255,255,0.45);
+      border-radius: 7px; padding: 5px 12px;
+      font-family: 'Nunito', sans-serif; font-size: 12px; font-weight: 700;
+      cursor: pointer;
+    }
+    .mode-btn.active { border-color: #54A0FF; color: #54A0FF; background: rgba(84,160,255,0.1); }
+    .edit-select, .edit-input {
+      background: rgba(255,255,255,0.06);
+      border: 1px solid rgba(255,255,255,0.15); border-radius: 8px;
+      padding: 6px 10px; font-family: 'Nunito', sans-serif; font-size: 13px;
+      color: #fff; outline: none;
+    }
+    .edit-select:focus, .edit-input:focus { border-color: #54A0FF; }
+    .edit-select option { background: #1a1a2e; }
+
     .empty { padding: 40px; text-align: center; color: rgba(255,255,255,0.2); font-size: 14px; }
 
     .toast {
@@ -155,6 +182,7 @@
 </div>
 
 <div class="toast" id="toast"></div>
+<datalist id="admin-loc-world"></datalist>
 
 <script>
   const today = new Date().toISOString().slice(0, 10);
@@ -162,7 +190,22 @@
   const AGE_LABELS = { toddler:'Toddler', preschool:'Preschool', school_age:'School', teen:'Teen', adult:'Adult' };
   const AGE_COLORS = { toddler:'#FF6B9D', preschool:'#FF9F43', school_age:'#54A0FF', teen:'#A29BFE', adult:'#00CEC9' };
 
-  let openDates = new Set();
+  let openDates   = new Set();
+  let activeEditId = null;
+
+  let LOCATIONS = { suriname: { districts: {} }, countries: [] };
+  fetch('/data/locations.json')
+    .then(r => r.json())
+    .then(locs => {
+      LOCATIONS = locs;
+      const dl = document.getElementById('admin-loc-world');
+      (locs.countries || []).forEach(c => {
+        const opt = document.createElement('option');
+        opt.value = c;
+        dl.appendChild(opt);
+      });
+    })
+    .catch(() => {});
 
   function showToast(msg, type) {
     const t = document.getElementById('toast');
@@ -180,7 +223,7 @@
     tbody.innerHTML = '<tr><td colspan="5" class="empty">Loading…</td></tr>';
     openDates.clear();
     try {
-      const rows = await fetch('/api/dates').then(r => r.json());
+      const rows = await fetch('/api/admin/dates').then(r => r.json());
       if (!rows.length) {
         tbody.innerHTML = '<tr><td colspan="5" class="empty">No data yet.</td></tr>';
         return;
@@ -243,7 +286,7 @@
     wrap.innerHTML = '<div class="entries-loading">Loading entries…</div>';
 
     try {
-      const entries = await fetch(`/api/entries?date=${date}`).then(r => r.json());
+      const entries = await fetch(`/api/admin/entries?date=${date}`).then(r => r.json());
       renderEntries(wrap, date, entries);
     } catch {
       wrap.innerHTML = '<div class="entries-loading">Failed to load entries.</div>';
@@ -267,14 +310,19 @@
         ? `${e.district}${e.resort ? ' · ' + e.resort : ''}`
         : (e.residence || '—');
       return `
-        <tr>
+        <tr id="entry-row-${e.id}"
+            data-date="${date}"
+            data-district="${escAttr(e.district)}"
+            data-resort="${escAttr(e.resort)}"
+            data-residence="${escAttr(e.residence)}">
           <td class="entry-id">#${e.id}</td>
           <td class="entry-hour">${hourLabel(e.hour)}</td>
           ${ageCols}
           <td class="entry-num" style="color:#FFD700">${e.first_time || '—'}</td>
           <td class="entry-num" style="color:#FFD700">${e.total}</td>
           <td style="color:rgba(255,255,255,0.45);font-size:12px;white-space:nowrap">${residence}</td>
-          <td>
+          <td style="display:flex;gap:6px">
+            <button class="edit-btn sm" onclick="startEdit(${e.id})">Edit</button>
             <button class="del-btn sm" onclick="deleteEntry(${e.id},'${date}')">Delete</button>
           </td>
         </tr>`;
@@ -299,7 +347,7 @@
   async function deleteEntry(id, date) {
     if (!confirm(`Delete entry #${id}? This cannot be undone.`)) return;
     try {
-      const res  = await fetch(`/api/entry/${id}`, { method: 'DELETE' });
+      const res  = await fetch(`/api/admin/entry/${id}`, { method: 'DELETE' });
       const data = await res.json();
       if (data.deleted) {
         showToast(`Entry #${id} deleted`, 'ok');
@@ -316,7 +364,7 @@
   async function refreshDate(date) {
     try {
       // Re-fetch the date summary
-      const dates = await fetch('/api/dates').then(r => r.json());
+      const dates = await fetch('/api/admin/dates').then(r => r.json());
       const row   = dates.find(d => d.visit_date === date);
       const tbody = document.getElementById('tbody');
 
@@ -338,7 +386,7 @@
       // Refresh the expanded entries panel
       if (openDates.has(date)) {
         const wrap    = document.getElementById(`entries-wrap-${date}`);
-        const entries = await fetch(`/api/entries?date=${date}`).then(r => r.json());
+        const entries = await fetch(`/api/admin/entries?date=${date}`).then(r => r.json());
         renderEntries(wrap, date, entries);
       }
     } catch {
@@ -351,13 +399,119 @@
     const label = date === today ? `today (${date})` : date;
     if (!confirm(`Delete ALL records for ${label}?\n\n${guests} guests will be removed. This cannot be undone.`)) return;
     try {
-      const res  = await fetch(`/api/log?date=${date}`, { method: 'DELETE' });
+      const res  = await fetch(`/api/admin/log?date=${date}`, { method: 'DELETE' });
       const data = await res.json();
       showToast(`Deleted ${data.deleted} record${data.deleted !== 1 ? 's' : ''} for ${date}`, 'ok');
       load();
     } catch {
       showToast('Delete failed — check server connection', 'err');
     }
+  }
+
+  // ── Inline edit ────────────────────────────────────────────────────────────
+
+  function escAttr(s) {
+    return (s || '').replace(/&/g, '&amp;').replace(/"/g, '&quot;');
+  }
+
+  function startEdit(id) {
+    if (activeEditId !== null) cancelEdit(activeEditId);
+    activeEditId = id;
+
+    const row      = document.getElementById(`entry-row-${id}`);
+    const date     = row.dataset.date;
+    const district = row.dataset.district;
+    const resort   = row.dataset.resort;
+    const residence = row.dataset.residence;
+    const colspan  = row.cells.length;
+
+    const mode = (district || !residence) ? 'suriname' : 'other';
+
+    const districtOpts = Object.keys((LOCATIONS.suriname || {}).districts || {}).sort()
+      .map(d => `<option value="${escAttr(d)}"${d === district ? ' selected' : ''}>${d}</option>`)
+      .join('');
+
+    const editRow = document.createElement('tr');
+    editRow.id = `edit-row-${id}`;
+    editRow.innerHTML = `
+      <td colspan="${colspan}" style="padding:10px 14px;background:rgba(84,160,255,0.06);border-left:3px solid #54A0FF">
+        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+          <div style="display:flex;gap:6px">
+            <button class="mode-btn${mode === 'suriname' ? ' active' : ''}" id="em-sr-${id}" onclick="setEditMode(${id},'suriname')">Suriname</button>
+            <button class="mode-btn${mode === 'other' ? ' active' : ''}" id="em-ot-${id}" onclick="setEditMode(${id},'other')">Other Country</button>
+          </div>
+          <div id="ef-sr-${id}" style="display:${mode === 'suriname' ? 'flex' : 'none'};align-items:center;gap:8px">
+            <select id="ed-${id}" class="edit-select" onchange="updateResortList(${id})">
+              <option value="">— District —</option>
+              ${districtOpts}
+            </select>
+            <input id="er-${id}" class="edit-input" list="erl-${id}" value="${escAttr(resort)}" placeholder="Resort (optional)" style="width:160px">
+            <datalist id="erl-${id}"></datalist>
+          </div>
+          <div id="ef-ot-${id}" style="display:${mode === 'other' ? 'flex' : 'none'};align-items:center;gap:8px">
+            <input id="ec-${id}" class="edit-input" list="admin-loc-world" value="${escAttr(residence)}" placeholder="Country" style="width:180px">
+          </div>
+          <div style="display:flex;gap:6px">
+            <button class="edit-btn sm" onclick="saveEdit(${id})">Save</button>
+            <button class="del-btn sm" onclick="cancelEdit(${id})">Cancel</button>
+          </div>
+        </div>
+      </td>`;
+
+    row.insertAdjacentElement('afterend', editRow);
+    if (district) updateResortList(id);
+  }
+
+  function setEditMode(id, mode) {
+    document.getElementById(`em-sr-${id}`).classList.toggle('active', mode === 'suriname');
+    document.getElementById(`em-ot-${id}`).classList.toggle('active', mode === 'other');
+    document.getElementById(`ef-sr-${id}`).style.display = mode === 'suriname' ? 'flex' : 'none';
+    document.getElementById(`ef-ot-${id}`).style.display = mode === 'other'    ? 'flex' : 'none';
+  }
+
+  function updateResortList(id) {
+    const district = document.getElementById(`ed-${id}`).value;
+    const dl = document.getElementById(`erl-${id}`);
+    dl.innerHTML = '';
+    ((LOCATIONS.suriname || {}).districts || {})[district]?.forEach(r => {
+      const opt = document.createElement('option');
+      opt.value = r;
+      dl.appendChild(opt);
+    });
+  }
+
+  async function saveEdit(id) {
+    const row  = document.getElementById(`entry-row-${id}`);
+    const date = row.dataset.date;
+    const srVisible = document.getElementById(`ef-sr-${id}`).style.display !== 'none';
+
+    let district = '', resort = '', residence = '';
+    if (srVisible) {
+      district = document.getElementById(`ed-${id}`).value;
+      resort   = document.getElementById(`er-${id}`).value;
+    } else {
+      residence = document.getElementById(`ec-${id}`).value;
+    }
+
+    try {
+      const res = await fetch(`/api/admin/entry/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ district, resort, residence }),
+      });
+      if (!res.ok) { showToast('Save failed', 'err'); return; }
+      showToast(`Entry #${id} updated`, 'ok');
+      activeEditId = null;
+      document.getElementById(`edit-row-${id}`)?.remove();
+      refreshDate(date);
+    } catch {
+      showToast('Save failed — check server', 'err');
+    }
+  }
+
+  function cancelEdit(id) {
+    document.getElementById(`edit-row-${id}`)?.remove();
+    if (activeEditId === id) activeEditId = null;
   }
 
   load();
