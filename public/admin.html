@@ -182,7 +182,10 @@
   </div>
 
   <div id="unknown-section" style="display:none;margin-bottom:28px">
-    <div class="section-label">Entries Missing Location</div>
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+      <div class="section-label" style="margin-bottom:0">Entries Missing Location</div>
+      <button class="del-btn" id="delete-all-unknown-btn" onclick="deleteAllUnknown()">Delete All Unknown</button>
+    </div>
     <div class="card" id="unknown-card"></div>
   </div>
 
@@ -466,6 +469,25 @@
       badge.textContent = entries.length;
       badge.style.display = entries.length ? 'inline-block' : 'none';
     } catch {}
+  }
+
+  async function deleteAllUnknown() {
+    const badge = document.getElementById('unknown-badge');
+    const count = badge.textContent || 'all unknown';
+    if (!confirm(`Delete ${count} entries with no location data?\n\nThis cannot be undone.`)) return;
+    const btn = document.getElementById('delete-all-unknown-btn');
+    btn.disabled = true;
+    try {
+      const res  = await fetch('/api/admin/unknown', { method: 'DELETE' });
+      const data = await res.json();
+      showToast(`Deleted ${data.deleted} unknown entries`, 'ok');
+      await refreshUnknown();
+      load();
+    } catch {
+      showToast('Delete failed — check server', 'err');
+    } finally {
+      btn.disabled = false;
+    }
   }
 
   function renderUnknownEntries(wrap, entries) {

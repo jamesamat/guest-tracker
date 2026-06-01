@@ -306,6 +306,16 @@ adminApp.get('/api/admin/unknown', (_req, res) => {
   res.json(rows);
 });
 
+// DELETE /api/admin/unknown  — delete all entries with no location data
+adminApp.delete('/api/admin/unknown', (_req, res) => {
+  const info = db.prepare(`
+    DELETE FROM visits
+    WHERE (district = '' OR district IS NULL)
+      AND (residence = '' OR residence IS NULL)
+  `).run();
+  res.json({ deleted: info.changes });
+});
+
 // GET /api/admin/dates  — all dates with totals
 adminApp.get('/api/admin/dates', (_req, res) => {
   const rows = db.prepare(`
