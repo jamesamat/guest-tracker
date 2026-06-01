@@ -38,6 +38,7 @@ function App() {
   const [residence,      setResidence]      = useState("");
   const [residenceError, setResidenceError] = useState(false);
   const [district,       setDistrict]       = useState("");
+  const [districtError,  setDistrictError]  = useState(false);
   const [resort,         setResort]         = useState("");
   const [resortError,    setResortError]    = useState(false);
   const [locations,     setLocations]     = useState({ suriname: [], countries: [] });
@@ -79,6 +80,16 @@ function App() {
 
   async function logVisit() {
     if (total === 0) return;
+    if (residenceMode === "suriname" && !district) {
+      setDistrictError(true);
+      setTimeout(() => setDistrictError(false), 2500);
+      return;
+    }
+    if (residenceMode === "other" && !residence) {
+      setResidenceError(true);
+      setTimeout(() => setResidenceError(false), 2500);
+      return;
+    }
     const hour = now.getHours();
     try {
       const entry = await apiFetch("POST", "/api/log", { date: localDateStr(), hour, counts, firstTime, residence, district, resort });
@@ -89,6 +100,7 @@ function App() {
       setResidence("");
       setResidenceError(false);
       setDistrict("");
+      setDistrictError(false);
       setResort("");
       setResortError(false);
       setTimeout(() => setFlashMsg(null), 3000);
@@ -199,7 +211,7 @@ function App() {
           <div className="res-toggle">
             <button
               className={`res-toggle-btn${residenceMode === "suriname" ? " active" : ""}`}
-              onClick={() => { setResidenceMode("suriname"); setResidence(""); setDistrict(""); setResort(""); }}
+              onClick={() => { setResidenceMode("suriname"); setResidence(""); setResidenceError(false); setDistrict(""); setResort(""); }}
             >Suriname</button>
             <button
               className={`res-toggle-btn${residenceMode === "other" ? " active" : ""}`}
@@ -212,15 +224,16 @@ function App() {
               {/* District — required */}
               <div className="res-field-label">District</div>
               <select
-                className="residence-input"
+                className={`residence-input${districtError ? " error" : ""}`}
                 value={district}
-                onChange={e => { setDistrict(e.target.value); setResort(""); setResortError(false); }}
+                onChange={e => { setDistrict(e.target.value); setResort(""); setResortError(false); setDistrictError(false); }}
               >
                 <option value="">— Select district —</option>
                 {Object.keys(locations.suriname.districts || {}).sort().map(d => (
                   <option key={d} value={d}>{d}</option>
                 ))}
               </select>
+              {districtError && <div className="res-error">Please select a district</div>}
 
               {/* Resort — optional, only shown once district is picked */}
               {district && (
