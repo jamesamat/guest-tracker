@@ -295,6 +295,17 @@ adminApp.get('/api/dashboard', dashboardHandler);
 // Register on public staff port behind token auth
 app._dashboardHandler = dashboardHandler;
 
+// GET /api/admin/unknown  — entries with no location data
+adminApp.get('/api/admin/unknown', (_req, res) => {
+  const rows = db.prepare(`
+    SELECT * FROM visits
+    WHERE (district = '' OR district IS NULL)
+      AND (residence = '' OR residence IS NULL)
+    ORDER BY visit_date DESC, hour, id
+  `).all();
+  res.json(rows);
+});
+
 // GET /api/admin/dates  — all dates with totals
 adminApp.get('/api/admin/dates', (_req, res) => {
   const rows = db.prepare(`
